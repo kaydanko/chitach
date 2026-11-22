@@ -218,6 +218,30 @@ enum FB2ParserChecks {
             check("розбір книги з підступними id", false)
         }
 
+        print("13. Мова як чужі дані")
+        // `<lang>` потрапляє в атрибут `lang` сторінки, яку малює WKWebView.
+        // Лапка в ньому розірвала б атрибут і дала дописати до тега будь-що.
+        for hostile in [
+            "\" onload=alert(1) x=\"",
+            "uk'><script>alert(1)</script>",
+            "не мова взагалі 🙂",
+            "",
+        ] {
+            check(
+                "«\(hostile)» → запасний код",
+                FB2Parser.validLanguage(hostile) == "uk",
+                FB2Parser.validLanguage(hostile)
+            )
+        }
+        for good in ["uk", "uk-UA", "zh-Hans-CN", "en"] {
+            check("«\(good)» лишається як є", FB2Parser.validLanguage(good) == good)
+        }
+        check(
+            "лапка в тексті екранується",
+            EPUBBuilder.escape("а\"б").contains("&quot;"),
+            EPUBBuilder.escape("а\"б")
+        )
+
         print(failures == 0 ? "\nУсе гаразд." : "\nПровалів: \(failures)")
         exit(failures == 0 ? 0 : 1)
     }

@@ -587,10 +587,25 @@ extension FB2Parser {
         return Document(
             title: bookTitle.trimmingCharacters(in: .whitespacesAndNewlines),
             authors: authors,
-            language: language.isEmpty ? "uk" : language,
+            language: Self.validLanguage(language),
             chapters: resolved,
             images: images
         )
+    }
+
+    /// Код мови, якщо він схожий на код мови.
+    ///
+    /// `<lang>` — поле з чужого файлу, а потрапляє воно в атрибут `lang`
+    /// сторінки, яку малює WKWebView. Екранування в ``EPUBBuilder`` уже не
+    /// дає вийти з атрибута, але пускати в розмітку будь-що з книги однаково
+    /// не варто: код мови має вигляд `uk`, `uk-UA`, `zh-Hans-CN` — усе інше
+    /// просто не код мови, і замінити його запасним значенням чесніше, ніж
+    /// переносити сміття.
+    static func validLanguage(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = "^[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*$"
+        let matches = trimmed.range(of: pattern, options: .regularExpression) != nil
+        return matches ? trimmed : "uk"
     }
 
     /// Тип картинки. Оголошеному в `content-type` довіряємо лише тоді, коли

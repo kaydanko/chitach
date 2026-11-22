@@ -49,8 +49,11 @@ struct ReaderView: View {
     @State private var isDraggingScrubber = false
     @State private var isHoveringScrubber = false
 
-    /// Зміст книги. Читаємо не наперед, а коли його просять: у великій книзі
-    /// це зайва робота на кожному відкритті.
+    /// Зміст книги.
+    ///
+    /// Читаємо одразу при відкритті, хоч це й зайвий виклик для книжок, де
+    /// змісту немає: інакше неможливо вирішити, чи показувати кнопку. А
+    /// кнопка, що відкриває порожнечу, гірша за її відсутність.
     @State private var contents: [TableOfContentsEntry] = []
     @State private var isShowingContents = false
 
@@ -90,11 +93,13 @@ struct ReaderView: View {
             // ⌘ + коліщатко миші.
             host.onFontSizeStep = { steps in store.stepFontSize(by: steps) }
 
-            // Перевірка вигляду без вказівника — так само, як `--settings`
-            // і `--library`. Прибрати разом з ними, коли запрацює тест-ранер.
-            if CommandLine.arguments.contains("--contents") {
-                Task {
-                    contents = TableOfContentsEntry.flatten(await host.tableOfContents())
+            Task {
+                contents = TableOfContentsEntry.flatten(await host.tableOfContents())
+
+                // Перевірка вигляду без вказівника — так само, як
+                // `--settings` і `--library`. Прибрати разом з ними, коли
+                // запрацює тест-ранер.
+                if CommandLine.arguments.contains("--contents"), contents.count > 1 {
                     isShowingContents = true
                 }
             }
@@ -112,11 +117,17 @@ struct ReaderView: View {
         .onChange(of: store.appearanceRevision) {
             Task { await host.refreshAppearance() }
         }
+        // `.environment(store)` на вмісті аркушів — не зайвина. Аркуш
+        // показується в окремому контексті, і звіт про аварію з Mac показує
+        // спрацьовану перевірку саме в пошуку значення середовища. Явна
+        // передача знімає залежність від того, як середовище успадковується.
         .sheet(isPresented: $store.isShowingSettings) {
             AppearanceSettingsView()
+                .environment(store)
         }
         .sheet(isPresented: $store.isShowingLibrary) {
             LibraryView(onClose: { store.isShowingLibrary = false })
+                .environment(store)
         }
         .sheet(isPresented: $isShowingContents) {
             TableOfContentsView(
@@ -141,11 +152,11 @@ struct ReaderView: View {
                 store.isShowingLibrary = true
             }
             toolbarButton("folder", label: "Відкрити файл") { store.isImporting = true }
-            toolbarButton("list.bullet", label: "Зміст") {
-                Task {
-                    contents = TableOfContentsEntry.flatten(await host.tableOfContents())
-                    isShowingContents = true
-                }
+            // Менше двох записів — це не зміст: у звичайному тексті в нього
+            // потрапляє єдина «Частина 1», і переходити нікуди. Кнопка, що
+            // відкриває таку порожнечу, гірша за її відсутність.
+            if contents.count > 1 {
+                toolbarButton("list.bullet", label: "Зміст") { isShowingContents = true }
             }
 
             Spacer(minLength: 12)

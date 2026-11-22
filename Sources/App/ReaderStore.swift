@@ -152,6 +152,15 @@ final class ReaderStore {
             // Навмисно без книги: інакше початковий екран не побачити, бо
             // застосунок завжди відновлює останню прочитану.
             bookURL = nil
+        } else if Phase0SelfCheck.isRequested,
+                  Self.requestedBookFromLaunchArguments() == nil
+        {
+            // Самоперевірка має працювати на відомому зразку. Інакше вона
+            // дістається тієї книги, яку востаннє читали, і її висновки
+            // залежать від розміру чужої книжки: допуски в кроках розраховані
+            // на сотню сторінок, а на семи сторінках сусідня сторінка вже
+            // виходить за межу.
+            bookURL = nil
         } else if let requested = Self.requestedBookFromLaunchArguments() {
             bookURL = requested
         } else {

@@ -131,7 +131,7 @@ enum EPUBBuilder {
         """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="\(language)" lang="\(language)">
+        <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="\(escape(language))" lang="\(escape(language))">
         <head>
           <meta charset="UTF-8"/>
           <title>\(escape(chapter.title ?? fallbackTitle))</title>
@@ -190,7 +190,7 @@ enum EPUBBuilder {
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE html>
         <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" \
-        xml:lang="\(metadata.language)" lang="\(metadata.language)">
+        xml:lang="\(escape(metadata.language))" lang="\(escape(metadata.language))">
         <head>
           <meta charset="UTF-8"/>
           <title>\(escape(metadata.title))</title>
@@ -233,12 +233,12 @@ enum EPUBBuilder {
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" \
-        unique-identifier="pub-id" xml:lang="\(metadata.language)">
+        unique-identifier="pub-id" xml:lang="\(escape(metadata.language))">
           <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
             <dc:identifier id="pub-id">urn:chytach:\(metadata.identifier)</dc:identifier>
             <dc:title>\(escape(metadata.title))</dc:title>
         \(authors)
-            <dc:language>\(metadata.language)</dc:language>
+            <dc:language>\(escape(metadata.language))</dc:language>
             <meta property="dcterms:modified">2026-01-01T00:00:00Z</meta>
           </metadata>
           <manifest>
@@ -257,11 +257,23 @@ enum EPUBBuilder {
 
     /// Екранування для XML. Порядок важливий: амперсанд першим, інакше
     /// подвійно екрануються власні підстановки.
+    /// Екранує текст для XHTML.
+    ///
+    /// Подвійну лапку теж, хоч у тексті сторінки вона й нешкідлива: той
+    /// самий рядок може опинитися в атрибуті, а там лапка розриває значення
+    /// й дає змогу дописати до тега що завгодно. Книга — чужий файл, і
+    /// покладатися на те, що її метадані кудись не потраплять, не можна.
+    ///
+    /// Апостроф не чіпаємо навмисно: усі атрибути тут у подвійних лапках,
+    /// тож розірвати значення він не може, а в українському тексті він у
+    /// кожному другому слові — `&apos;` замість нього лише засмітив би
+    /// розмітку.
     static func escape(_ string: String) -> String {
         string
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
     static var cacheDirectory: URL {
