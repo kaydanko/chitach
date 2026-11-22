@@ -160,6 +160,36 @@ final class ReaderStore {
         return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
+    /// Приймає файли, перетягнуті у вікно.
+    ///
+    /// Finder віддає перетягнутий файл як `NSItemProvider` з типом
+    /// `public.file-url`, а не як `Transferable`-значення. Саме тому
+    /// `.dropDestination(for: URL.self)` на Mac Catalyst мовчки нічого не
+    /// робив: конформанс `URL` до `Transferable` цей випадок не покриває.
+    ///
+    /// Повертає `true`, якщо хоч один елемент узято в роботу.
+    @discardableResult
+    func open(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) })
+        else {
+            errorMessage = "Не вдалося прочитати перетягнутий файл."
+            return false
+        }
+
+        _ = provider.loadObject(ofClass: URL.self) { [weak self] url, error in
+            Task { @MainActor in
+                guard let self else { return }
+                guard let url else {
+                    self.errorMessage = error?.localizedDescription
+                        ?? "Не вдалося прочитати перетягнутий файл."
+                    return
+                }
+                self.open(fileURL: url)
+            }
+        }
+        return true
+    }
+
     /// Приймає файл від вибору або перетягування.
     func open(fileURL: URL) {
         do {

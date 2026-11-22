@@ -1,6 +1,7 @@
 import ReadiumNavigator
 import ReadiumShared
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(ReaderStore.self) private var store
@@ -30,11 +31,12 @@ struct ContentView: View {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(BookAppearance.voidColor).ignoresSafeArea())
-                // Перетягування файлу у вікно.
-                .dropDestination(for: URL.self) { urls, _ in
-                    guard let url = urls.first else { return false }
-                    store.open(fileURL: url)
-                    return true
+                // Перетягування файлу у вікно. Саме `onDrop` із явним типом
+                // `public.file-url`, а не `dropDestination(for: URL.self)`:
+                // Finder віддає файл провайдером, і типізований варіант на
+                // Catalyst його не бачить.
+                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                    store.open(providers: providers)
                 }
                 .fileImporter(
                     isPresented: $store.isImporting,
