@@ -178,6 +178,18 @@ enum RTFPictureExtractor {
         return (word, Int(digits), i)
     }
 
+    /// Обмежує довжину двійкового хвоста тим, що справді лишилося у файлі.
+    ///
+    /// Складати напряму не можна. У пошкодженому — чи зумисне зіпсованому —
+    /// файлі `\binN` буває завбільшки з `Int.max`, і додавання переповнює
+    /// тип. У Swift переповнення не «загортається», а аварійно завершує
+    /// застосунок: досить було б однієї такої книжки, щоб читалка падала на
+    /// відкритті.
+    private static func clamped(_ count: Int, upTo available: Int) -> Int {
+        guard available > 0 else { return 0 }
+        return min(count, available)
+    }
+
     /// Позиція одразу за керівним словом разом із його двійковим хвостом.
     private static func skip(controlAt index: Int, in bytes: [UInt8], limit: Int) -> Int {
         guard let control = controlWord(at: index, in: bytes, limit: limit) else {
@@ -187,7 +199,7 @@ enum RTFPictureExtractor {
         }
 
         if control.word == "bin", let count = control.parameter, count > 0 {
-            return min(control.next + count, limit)
+            return control.next + clamped(count, upTo: limit - control.next)
         }
         return control.next
     }
@@ -209,7 +221,7 @@ enum RTFPictureExtractor {
                 if let control = controlWord(at: i, in: bytes, limit: range.upperBound),
                    control.word == "bin",
                    let count = control.parameter, count > 0 {
-                    let end = min(control.next + count, range.upperBound)
+                    let end = control.next + clamped(count, upTo: range.upperBound - control.next)
                     return end > control.next ? Data(bytes[control.next ..< end]) : nil
                 }
 

@@ -54,6 +54,15 @@ enum RTFPictureExtractorChecks {
         r = RTFPictureExtractor.extract(from: doc)
         check("двійковий блок прочитано", r.pictures.first == binary, "\(r.pictures.first?.count ?? -1) байт")
 
+        print("5a. Пошкоджений \\bin із велетенським параметром")
+        // Переповнення при додаванні аварійно завершує застосунок, тож така
+        // книжка клала б читалку на відкритті.
+        for parameter in ["9223372036854775807", "9999999999999999999", "-5"] {
+            let doc = Data("{\\rtf1\\ansi\\pard До {\\pict\\pngblip\\bin\(parameter) \(png)} після}".utf8)
+            let r = RTFPictureExtractor.extract(from: doc)
+            check("параметр \(parameter) не валить розбірник", r.pictures.count <= 1, "\(r.pictures.count)")
+        }
+
         print("6. Екрановані дужки в тексті")
         r = RTFPictureExtractor.extract(from: rtf("Текст \\{ у дужках \\} і \(pict())"))
         check("картинка знайдена", r.pictures.count == 1, "\(r.pictures.count)")
