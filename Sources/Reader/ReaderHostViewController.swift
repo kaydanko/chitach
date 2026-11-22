@@ -116,6 +116,31 @@ final class ReaderHostViewController: UIViewController {
         await turnPage { await navigator.goBackward(options: NavigatorGoOptions(animated: true)) }
     }
 
+    /// Переходить на задану частку книги (0…1).
+    ///
+    /// Потрібно для повзунка в підвалі: гортати по одній сторінці до кінця
+    /// тисячосторінкової книги неможливо.
+    @discardableResult
+    func go(toProgression progression: Double) async -> Bool {
+        let clamped = min(max(progression, 0), 1)
+        guard let locator = await navigator.publication.locate(progression: clamped) else {
+            return false
+        }
+        return await turnPage {
+            await navigator.go(to: locator, options: NavigatorGoOptions(animated: false))
+        }
+    }
+
+    @discardableResult
+    func goToStart() async -> Bool {
+        await go(toProgression: 0)
+    }
+
+    @discardableResult
+    func goToEnd() async -> Bool {
+        await go(toProgression: 1)
+    }
+
     private func turnPage(_ move: () async -> Bool) async -> Bool {
         guard !isTurningPage else { return false }
         isTurningPage = true
@@ -432,6 +457,15 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
     }
 
     func navigator(_ navigator: Navigator, presentExternalURL url: URL) {
+        // Схема перевіряється навмисно. Посилання приходить із вмісту книги,
+        // тобто з файлу, який застосунок не контролює: EPUB може містити
+        // `file://`, `tel:` або власну схему іншого застосунку. Передавати
+        // таке в систему без перевірки — віддавати чужому файлу право
+        // відкривати що завгодно на машині користувача.
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+            print("[Reader] посилання з непідтримуваною схемою відхилено: \(url.scheme ?? "—")")
+            return
+        }
         UIApplication.shared.open(url)
     }
 

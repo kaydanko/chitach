@@ -37,6 +37,11 @@ struct ReaderView: View {
     /// одиниці. Саме за цим ховаємо кнопки, яким нікуди гортати.
     @State private var viewport: NavigatorViewport?
 
+    /// Положення повзунка. Поки його тягнуть, оновлення від навігатора не
+    /// застосовуємо — інакше повзунок виривався б з-під пальця.
+    @State private var sliderValue: Double = 0
+    @State private var isScrubbing = false
+
     private enum PageDirection { case backward, forward }
 
     /// Невеликий допуск: межі діапазону рідко дорівнюють 0 і 1 точно.
@@ -60,7 +65,11 @@ struct ReaderView: View {
         }
         .background(Color(BookAppearance.voidColor))
         .onAppear {
-            host.onLocationChange = { locator = $0 }
+            host.onLocationChange = { newLocator in
+                locator = newLocator
+                guard !isScrubbing else { return }
+                sliderValue = min(max(newLocator.locations.totalProgression ?? 0, 0), 1)
+            }
             host.onViewportChange = { newViewport in
                 viewport = newViewport
 
@@ -70,6 +79,16 @@ struct ReaderView: View {
             }
             // ⌘ + коліщатко миші.
             host.onFontSizeStep = { steps in store.stepFontSize(by: steps) }
+        }
+        .onChange(of: store.pendingJump) { _, jump in
+            guard let jump else { return }
+            store.pendingJump = nil
+            Task {
+                switch jump {
+                case .start: await host.goToStart()
+                case .end: await host.goToEnd()
+                }
+            }
         }
         .onChange(of: store.appearanceRevision) {
             Task { await host.refreshAppearance() }
@@ -199,33 +218,71 @@ struct ReaderView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            progressBar
-            HStack {
+            scrubber
+
+            HStack(spacing: 10) {
+                jumpButton("chevron.left.to.line", label: "На початок книги") {
+                    await host.goToStart()
+                }
+
                 Text(locator?.title ?? "")
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Spacer(minLength: 16)
+
+                Spacer(minLength: 12)
+
                 Text(pageLabel)
                     .monospacedDigit()
+
+                jumpButton("chevron.right.to.line", label: "У кінець книги") {
+                    await host.goToEnd()
+                }
             }
             .font(.caption)
             .foregroundStyle(Color.white.opacity(0.55))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
         }
         .background(Color(BookAppearance.footerColor))
     }
 
-    private var progressBar: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.white.opacity(0.12))
-                Rectangle()
-                    .fill(Color(BookAppearance.paperColor).opacity(0.75))
-                    .frame(width: geometry.size.width * progress)
+    /// Повзунок переходу на довільне місце книги.
+    ///
+    /// Гортання по одній сторінці — єдиний спосіб рухатися, якого було
+    /// недостатньо: щоб дістатися кінця тисячосторінкової книги, довелося б
+    /// клацати тисячу разів.
+    private var scrubber: some View {
+        Slider(
+            value: $sliderValue,
+            in: 0 ... 1,
+            onEditingChanged: { editing in
+                isScrubbing = editing
+                guard !editing else { return }
+                Task { await host.go(toProgression: sliderValue) }
             }
+        )
+        .controlSize(.mini)
+        .tint(Color(BookAppearance.paperColor))
+        .padding(.horizontal, 12)
+        .padding(.top, 4)
+    }
+
+    private func jumpButton(
+        _ systemName: String,
+        label: String,
+        action: @escaping () async -> Void
+    ) -> some View {
+        Button {
+            Task { await action() }
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 24, height: 18)
         }
-        .frame(height: 3)
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.white.opacity(0.55))
+        .help(label)
+        .accessibilityLabel(label)
     }
 
     private var progress: Double {
@@ -236,7 +293,15 @@ struct ReaderView: View {
     /// шрифту й розміру вікна. Позиції Readium стабільні, тому рахунок ведемо
     /// по них і додаємо відсоток, щоб число мало сенс.
     private var pageLabel: String {
-        let percent = Int((progress * 100).rounded())
+        // Під час перетягування показуємо, куди потрапимо, а не де стоїмо.
+        let shown = isScrubbing ? sliderValue : progress
+        let percent = Int((shown * 100).rounded())
+
+        if isScrubbing, host.totalPositions > 0 {
+            let target = max(1, Int((shown * Double(host.totalPositions)).rounded()))
+            return "→ сторінка \(target) з \(host.totalPositions) · \(percent)%"
+        }
+
         guard host.totalPositions > 0, let position = locator?.locations.position else {
             return "\(percent)%"
         }

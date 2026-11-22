@@ -51,6 +51,16 @@ struct ChytachApp: App {
 
                 Button("Оформлення…") { store.isShowingSettings = true }
                     .keyboardShortcut(",", modifiers: .command)
+
+                Divider()
+
+                Button("На початок книги") { store.pendingJump = .start }
+                    .keyboardShortcut(.upArrow, modifiers: .command)
+                    .disabled(store.bookURL == nil)
+
+                Button("У кінець книги") { store.pendingJump = .end }
+                    .keyboardShortcut(.downArrow, modifiers: .command)
+                    .disabled(store.bookURL == nil)
             }
         }
     }

@@ -6,6 +6,12 @@ import UIKit
 ///
 /// Потрібен, бо пункт меню «Відкрити книгу…» живе у `ChytachApp`, а показує
 /// діалог `ContentView` — їм треба спільна точка.
+/// Куди перейти на вимогу з меню.
+enum ReaderJump: Equatable {
+    case start
+    case end
+}
+
 @Observable
 final class ReaderStore {
     private static let lastBookKey = "lastOpenedBook"
@@ -26,6 +32,12 @@ final class ReaderStore {
 
     /// Чи відкрито налаштування оформлення.
     var isShowingSettings = false
+
+    /// Запит переходу з меню. Екран читання його виконує й скидає.
+    ///
+    /// Потрібен місток: пункти меню живуть у `ChytachApp`, а навігатор —
+    /// усередині екрана читання, і прямого доступу між ними немає.
+    var pendingJump: ReaderJump?
 
     /// Лічильник змін оформлення. Екран читання стежить за ним і застосовує
     /// нові налаштування, зберігаючи місце в тексті.
