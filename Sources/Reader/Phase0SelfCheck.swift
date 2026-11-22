@@ -108,6 +108,81 @@ enum Phase0SelfCheck {
             log(false, "positions(): \(error)")
         }
 
+        // 7. Перемотування смугою: багато запитів підряд, як від миші.
+        //
+        // Перевіряє дві речі, що раніше були зламані: сторінки мають
+        // гортатися вже під час ведення, а останній запит — не губитися
+        // через запобіжник, що не пускав другий перехід поверх першого.
+        let previousHandler = host.onLocationChange
+        var seenDuringScrub: [Double] = []
+        host.onLocationChange = { locator in
+            seenDuringScrub.append(locator.locations.totalProgression ?? 0)
+            previousHandler?(locator)
+        }
+
+        // Спершу поодинокий перехід — щоб відрізнити ваду черги від вади
+        // самого переходу на частку книги.
+        let probe = await navigator.publication.locate(progression: 0.5)
+        log(probe != nil, String(
+            format: "locate(0.5) → %@ progression=%.4f total=%.4f",
+            probe?.href.string ?? "nil",
+            probe?.locations.progression ?? -1,
+            probe?.locations.totalProgression ?? -1
+        ))
+        let single = await host.go(toProgression: 0.5)
+        let singleMoved = await wait(5) {
+            abs((navigator.currentLocation?.locations.totalProgression ?? 0) - 0.5) < 0.06
+        }
+        log(single && singleMoved, String(
+            format: "go(toProgression: 0.5): прийнято %@, дочекались %@, позиція %.4f",
+            single ? "так" : "ні",
+            singleMoved ? "так" : "ні",
+            navigator.currentLocation?.locations.totalProgression ?? -1
+        ))
+
+        let scrubTarget = 0.8
+        for step in 1 ... 15 {
+            host.scrub(to: 0.1 + (scrubTarget - 0.1) * Double(step) / 15)
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        // Без додаткового очікування: `finishScrubbing` зобовʼязана повертати
+        // керування лише тоді, коли сторінка вже стала на місце. Саме на це
+        // спирається смуга, вирішуючи, коли віддати повзунок навігаторові.
+        await host.finishScrubbing()
+        host.onLocationChange = previousHandler
+
+        let landed = navigator.currentLocation?.locations.totalProgression ?? 0
+        log(
+            abs(landed - scrubTarget) < 0.06,
+            String(format: "перемотування: ціль %.4f, зупинились на %.4f", scrubTarget, landed)
+        )
+        log(
+            seenDuringScrub.count > 1,
+            "позицій змінено під час ведення: \(seenDuringScrub.count) (якщо 1 — гортання лише після відпускання)"
+        )
+
+        // 8. Приймання перетягнутого файлу.
+        //
+        // Перевіряє ту половину, яку можна перевірити без миші: чи
+        // дістається книга з `NSItemProvider` — того самого, що його
+        // віддає система при кидку. Чи доходить сам кидок до вікна, видно
+        // лише руками.
+        if let sample = Bundle.main.url(forResource: "sample", withExtension: "epub"),
+           let provider = NSItemProvider(contentsOf: sample) {
+            do {
+                let imported = try await BookImportService.importBook(from: provider)
+                log(
+                    FileManager.default.fileExists(atPath: imported.path),
+                    "перетягування: книга в бібліотеці — \(imported.lastPathComponent)"
+                )
+                try? FileManager.default.removeItem(at: imported)
+            } catch {
+                log(false, "перетягування: \(error.localizedDescription)")
+            }
+        } else {
+            log(false, "перетягування: не вдалося зібрати провайдера зі зразка")
+        }
+
         log(host.transparentWebViewCount > 0,
             "WKWebView знайдено в ієрархії: \(host.transparentWebViewCount)")
 

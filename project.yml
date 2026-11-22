@@ -52,7 +52,7 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: Chytach
-        CFBundleShortVersionString: "0.1.0"
+        CFBundleShortVersionString: "0.2.0"
         CFBundleVersion: "1"
         UILaunchScreen:
           UIColorName: LaunchBackground
@@ -71,6 +71,22 @@ targets:
         # Потрібне для Фази 2 (імпорт через Files / Open In).
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        # Без цього «Відкрити за допомогою» не показує Chytach: обробник
+        # вхідних файлів у застосунку є (`onOpenURL`), але система не знає,
+        # що він щось із цього вміє. Перелічені лише типи зі стандартними
+        # ідентифікаторами; CBZ і FB2 власних не мають — для них знадобиться
+        # окреме оголошення типу.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Книга
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - org.idpf.epub-container
+              - com.adobe.pdf
+              - public.plain-text
+              - public.rtf
+              - com.apple.rtfd
+              - net.daringfireball.markdown
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kabuki.chytach

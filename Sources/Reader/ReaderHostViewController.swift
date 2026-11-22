@@ -131,6 +131,114 @@ final class ReaderHostViewController: UIViewController {
         }
     }
 
+    // MARK: Перемотування смугою
+
+    /// Остання запитана частка книги.
+    ///
+    /// Під час перетягування запитів десятки на секунду, а сенс має лише
+    /// найсвіжіший: решта вже застаріла, доки виконувався попередній перехід.
+    private var pendingScrub: Double?
+    private var scrubTask: Task<Void, Never>?
+
+    /// Частка, на яку перемотували востаннє, — щоб знати, чого чекати.
+    private var lastScrubTarget: Double?
+
+    /// Остання частка, **віддана інтерфейсу** через ``onLocationChange``.
+    ///
+    /// Саме вона, а не `navigator.currentLocation`: між оновленням позиції
+    /// всередині навігатора й викликом делегата є проміжок, і якби смуга
+    /// оживала за внутрішнім значенням, вона встигла б показати стару
+    /// сторінку на один кадр.
+    private var lastReportedProgression: Double?
+
+    /// Наскільки близько до цілі вважаємо, що прибули.
+    ///
+    /// Навігатор стає на межу сторінки, а не рівно на запитану частку, тож
+    /// допуск має бути в масштабі сторінки. Півтори сторінки — щоб округлення
+    /// в обидва боки не лишало нас у нескінченному очікуванні.
+    private var scrubSettleTolerance: Double {
+        totalPositions > 0 ? max(1.5 / Double(totalPositions), 0.004) : 0.02
+    }
+
+    /// Просить перейти на задану частку книги, не чекаючи завершення.
+    ///
+    /// Окремо від ``go(toProgression:)`` саме через поведінку під
+    /// перетягуванням. Якби запити йшли прямо, вони або шикувалися б у чергу
+    /// — і повзунок відставав би на секунди, — або їх відкидав би запобіжник
+    /// `turnPage`, який не пускає другий перехід поверх першого. Тут замість
+    /// черги й відкидання одна комірка: новий запит витісняє невиконаний
+    /// старий, і жодне натискання не губиться.
+    func scrub(to progression: Double) {
+        pendingScrub = min(max(progression, 0), 1)
+        guard scrubTask == nil else { return }
+        scrubTask = Task { @MainActor [weak self] in
+            await self?.drainScrubRequests()
+        }
+    }
+
+    /// Чекає, доки перемотування дійде до останньої запитаної частки.
+    ///
+    /// Потрібне інтерфейсу: поки воно триває, смуга показує, куди веде
+    /// користувач, а не де стоїть навігатор. Повернути їй звичайну поведінку
+    /// можна лише тоді, коли сторінка справді стала на місце, — інакше
+    /// повзунок блимне старою позицією.
+    func finishScrubbing() async {
+        while let task = scrubTask {
+            await task.value
+            if pendingScrub == nil { break }
+        }
+        await waitForScrubToSettle()
+    }
+
+    /// Чекає, доки навігатор повідомить, що вже на місці.
+    ///
+    /// `navigator.go(to:)` повертає керування раніше, ніж спрацьовує делегат
+    /// із новою позицією. Якщо віддати смугу навігаторові одразу після
+    /// переходу, вона встигне блимнути попередньою сторінкою — те саме
+    /// смикання, лише коротше. Обмежено за часом: якщо навігатор із якоїсь
+    /// причини не доповість, смуга все одно оживе.
+    private func waitForScrubToSettle(timeout: Duration = .seconds(2)) async {
+        guard let target = lastScrubTarget else { return }
+        let deadline = ContinuousClock.now + timeout
+
+        while ContinuousClock.now < deadline {
+            if let now = lastReportedProgression, abs(now - target) <= scrubSettleTolerance {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+    }
+
+    private func drainScrubRequests() async {
+        defer {
+            scrubTask = nil
+            // Запис позиції під час перемотування пропускався — зберігаємо ту,
+            // на якій зупинилися.
+            if let locator = navigator.currentLocation {
+                ReadingPositionStore.save(locator, for: bookURL)
+            }
+        }
+
+        while let target = pendingScrub {
+            pendingScrub = nil
+            lastScrubTarget = target
+            await waitWhilePageTurns()
+            _ = await go(toProgression: target)
+        }
+    }
+
+    /// Пережидає анімований перехід від кнопок гортання.
+    ///
+    /// Без цього `turnPage` відкинув би запит перемотування, і смуга
+    /// «не спрацювала б» — саме так це й виглядає збоку. Обмежено за часом:
+    /// зависнути тут не можна.
+    private func waitWhilePageTurns(timeout: Duration = .milliseconds(600)) async {
+        let deadline = ContinuousClock.now + timeout
+        while isTurningPage, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+    }
+
     @discardableResult
     func goToStart() async -> Bool {
         await go(toProgression: 0)
@@ -436,9 +544,14 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
 
     func navigator(_ navigator: Navigator, locationDidChange locator: Locator) {
         enforceWebViewBackdrop()
+        lastReportedProgression = locator.locations.totalProgression
         // Зберігаємо на кожну зміну позиції: застосунок можуть закрити будь-
         // коли, а чекати на спеціальний момент — втратити останню сторінку.
-        ReadingPositionStore.save(locator, for: bookURL)
+        // Виняток — перемотування смугою: там позиція міняється десятки
+        // разів поспіль, і записувати варто лише ту, на якій зупинилися.
+        if scrubTask == nil {
+            ReadingPositionStore.save(locator, for: bookURL)
+        }
         onLocationChange?(locator)
     }
 

@@ -37,10 +37,16 @@ struct ReaderView: View {
     /// одиниці. Саме за цим ховаємо кнопки, яким нікуди гортати.
     @State private var viewport: NavigatorViewport?
 
-    /// Положення повзунка. Поки його тягнуть, оновлення від навігатора не
-    /// застосовуємо — інакше повзунок виривався б з-під пальця.
-    @State private var sliderValue: Double = 0
-    @State private var isScrubbing = false
+    /// Куди веде користувач смугою. Поки не `nil`, смуга показує саме це,
+    /// а не те, що повідомляє навігатор.
+    ///
+    /// Раніше замість цього був прапорець «тягнемо», який скидався в ту ж
+    /// мить, коли палець відпускали. Перехід при цьому ще тривав, тож смуга
+    /// встигала повернутися на стару позицію й лише потім стрибала на нову —
+    /// звідси смикання й відчуття, що повзунок живе своїм життям. Ціль
+    /// тримаємо доти, доки сторінка справді не стане на місце.
+    @State private var scrubTarget: Double?
+    @State private var isDraggingScrubber = false
     @State private var isHoveringScrubber = false
 
     private enum PageDirection { case backward, forward }
@@ -68,8 +74,6 @@ struct ReaderView: View {
         .onAppear {
             host.onLocationChange = { newLocator in
                 locator = newLocator
-                guard !isScrubbing else { return }
-                sliderValue = min(max(newLocator.locations.totalProgression ?? 0, 0), 1)
             }
             host.onViewportChange = { newViewport in
                 viewport = newViewport
@@ -262,8 +266,8 @@ struct ReaderView: View {
     private var scrubber: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
-            let isActive = isHoveringScrubber || isScrubbing
-            let shown = min(max(isScrubbing ? sliderValue : progress, 0), 1)
+            let isActive = isHoveringScrubber || isDraggingScrubber || scrubTarget != nil
+            let shown = shownProgress
             let trackHeight: CGFloat = isActive ? 9 : 3
             let thumbSize: CGFloat = 17
             let centre = min(max(width * shown, thumbSize / 2), max(width - thumbSize / 2, thumbSize / 2))
@@ -294,16 +298,30 @@ struct ReaderView: View {
             .onHover { hovering in
                 isHoveringScrubber = hovering
             }
+            // Гортаємо вже під час руху, а не після відпускання: інакше
+            // вибирати місце доводиться наосліп, за самим лише номером
+            // сторінки на мітці.
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        isScrubbing = true
-                        sliderValue = min(max(value.location.x / max(width, 1), 0), 1)
+                        isDraggingScrubber = true
+                        let target = Self.position(of: value.location.x, width: width)
+                        scrubTarget = target
+                        host.scrub(to: target)
                     }
-                    .onEnded { _ in
-                        let target = sliderValue
-                        isScrubbing = false
-                        Task { await host.go(toProgression: target) }
+                    .onEnded { value in
+                        let target = Self.position(of: value.location.x, width: width)
+                        scrubTarget = target
+                        isDraggingScrubber = false
+                        host.scrub(to: target)
+
+                        Task {
+                            await host.finishScrubbing()
+                            // Смуга могла вже піти за новим рухом — тоді вона
+                            // належить йому, а не цьому переходу.
+                            guard !isDraggingScrubber, scrubTarget == target else { return }
+                            scrubTarget = nil
+                        }
                     }
             )
             .overlay(alignment: .topLeading) {
@@ -332,7 +350,7 @@ struct ReaderView: View {
     }
 
     private var scrubberPageText: String {
-        let shown = min(max(isScrubbing ? sliderValue : progress, 0), 1)
+        let shown = shownProgress
         guard host.totalPositions > 0 else {
             return "\(Int((shown * 100).rounded()))%"
         }
@@ -368,15 +386,27 @@ struct ReaderView: View {
         min(max(locator?.locations.totalProgression ?? 0, 0), 1)
     }
 
+    /// Частка, яку показує смуга: ціль користувача має перевагу над
+    /// повідомленням навігатора, доки перехід не завершиться.
+    private var shownProgress: Double {
+        min(max(scrubTarget ?? progress, 0), 1)
+    }
+
+    private static func position(of x: CGFloat, width: CGFloat) -> Double {
+        min(max(Double(x / max(width, 1)), 0), 1)
+    }
+
     /// Сторінок як таких у reflowable-книзі немає: їх кількість залежить від
     /// шрифту й розміру вікна. Позиції Readium стабільні, тому рахунок ведемо
     /// по них і додаємо відсоток, щоб число мало сенс.
     private var pageLabel: String {
-        // Під час перетягування показуємо, куди потрапимо, а не де стоїмо.
-        let shown = isScrubbing ? sliderValue : progress
+        let shown = shownProgress
         let percent = Int((shown * 100).rounded())
 
-        if isScrubbing, host.totalPositions > 0 {
+        // Поки повзунок ведуть, показуємо, куди він веде: сторінка вже
+        // гортається слідом, але позиція від навігатора приходить із
+        // запізненням на один перехід.
+        if isDraggingScrubber, host.totalPositions > 0 {
             let target = max(1, Int((shown * Double(host.totalPositions)).rounded()))
             return "→ сторінка \(target) з \(host.totalPositions) · \(percent)%"
         }

@@ -162,29 +162,40 @@ final class ReaderStore {
 
     /// Приймає файли, перетягнуті у вікно.
     ///
-    /// Finder віддає перетягнутий файл як `NSItemProvider` з типом
-    /// `public.file-url`, а не як `Transferable`-значення. Саме тому
-    /// `.dropDestination(for: URL.self)` на Mac Catalyst мовчки нічого не
-    /// робив: конформанс `URL` до `Transferable` цей випадок не покриває.
+    /// Саму подію ловить ``WindowDropCatcher`` — там пояснено, чому не
+    /// SwiftUI-модифікатором. Тут лишається забрати файл: цим займається
+    /// ``BookImportService/importBook(from:)-(NSItemProvider)``.
     ///
     /// Повертає `true`, якщо хоч один елемент узято в роботу.
+    /// Коли кидок уже прийнято. Каналів приймання два, і хоча спрацювати
+    /// має лише один, покладатися на це не варто: подвійний імпорт створив
+    /// би в бібліотеці другу копію книги.
+    private var lastDropAccepted: Date?
+
     @discardableResult
-    func open(providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) })
-        else {
-            errorMessage = "Не вдалося прочитати перетягнутий файл."
+    func open(providers: [NSItemProvider], source: String = "кидок") -> Bool {
+        guard let provider = providers.first else {
+            DropLog.note("\(source): елементів немає")
             return false
         }
 
-        _ = provider.loadObject(ofClass: URL.self) { [weak self] url, error in
-            Task { @MainActor in
-                guard let self else { return }
-                guard let url else {
-                    self.errorMessage = error?.localizedDescription
-                        ?? "Не вдалося прочитати перетягнутий файл."
-                    return
-                }
-                self.open(fileURL: url)
+        let now = Date()
+        if let last = lastDropAccepted, now.timeIntervalSince(last) < 1 {
+            DropLog.note("\(source): повтор, пропускаємо")
+            return true
+        }
+        lastDropAccepted = now
+        DropLog.note("\(source): типи — \(provider.registeredTypeIdentifiers.joined(separator: ", "))")
+
+        Task { @MainActor in
+            do {
+                let url = try await BookImportService.importBook(from: provider)
+                DropLog.note("\(source): книга в бібліотеці — \(url.lastPathComponent)")
+                bookURL = url
+                errorMessage = nil
+            } catch {
+                DropLog.note("\(source): не вдалося — \(error.localizedDescription)")
+                errorMessage = error.localizedDescription
             }
         }
         return true

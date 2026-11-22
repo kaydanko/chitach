@@ -24,6 +24,10 @@ struct ContentView: View {
 
     @State private var state: LoadState = .empty
 
+    /// Чи тримають файл над вікном. Два прапорці, бо каналів приймання два.
+    @State private var isWindowDropTargeted = false
+    @State private var isViewDropTargeted = false
+
     var body: some View {
         @Bindable var store = store
 
@@ -31,13 +35,20 @@ struct ContentView: View {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(BookAppearance.voidColor).ignoresSafeArea())
-                // Перетягування файлу у вікно. Саме `onDrop` із явним типом
-                // `public.file-url`, а не `dropDestination(for: URL.self)`:
-                // Finder віддає файл провайдером, і типізований варіант на
-                // Catalyst його не бачить.
-                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                    store.open(providers: providers)
+                // Перетягування приймається двома каналами навмисно.
+                //
+                // Жоден з них поодинці досі не спрацював, а з коду не видно,
+                // котрий саме мовчить: UIKit віддає кидок найглибшій
+                // взаємодії, тож одночасно вони не спрацюють, зате журнал
+                // одразу покаже, хто з них отримав подію. Повтор, якби він
+                // усе ж стався, відсіюється у сховищі.
+                .background(WindowDropCatcher(isTargeted: $isWindowDropTargeted) { providers in
+                    store.open(providers: providers, source: "вікно")
+                })
+                .onDrop(of: [.item], isTargeted: $isViewDropTargeted) { providers in
+                    store.open(providers: providers, source: "SwiftUI")
                 }
+                .overlay { dropHighlight }
                 .fileImporter(
                     isPresented: $store.isImporting,
                     allowedContentTypes: BookImportService.contentTypes
@@ -83,8 +94,32 @@ struct ContentView: View {
                 Text(message).font(.footnote.monospaced())
             } actions: {
                 Button("Обрати інший файл") { store.isImporting = true }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: 20))
             }
+        }
+    }
+
+    /// Видима відповідь на наведення файлу.
+    ///
+    /// Потрібна не лише для вигляду: доки перетягування не працює, це
+    /// єдиний спосіб побачити, чи подія взагалі доходить до застосунку.
+    @ViewBuilder
+    private var dropHighlight: some View {
+        if isWindowDropTargeted || isViewDropTargeted {
+            ZStack {
+                Color(BookAppearance.voidColor).opacity(0.55)
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(
+                        Color(BookAppearance.onVoidColor),
+                        style: StrokeStyle(lineWidth: 3, dash: [11, 8])
+                    )
+                Text("Відпустіть, щоб відкрити")
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(Color(BookAppearance.onVoidColor))
+            }
+            .padding(14)
+            .allowsHitTesting(false)
+            .transition(.opacity)
         }
     }
 
@@ -138,6 +173,51 @@ struct ContentView: View {
     }
 }
 
+/// Кнопка на темному тлі, намальована власноруч.
+///
+/// Системний `.borderedProminent` на Mac прибирає заливку, щойно вікно
+/// втрачає фокус: лишається темний напис на темному тлі, і кнопки просто не
+/// видно. На заставці це неприпустимо — там вона єдиний спосіб відкрити
+/// книгу, і саме туди людина дивиться, повертаючись до вікна з іншого
+/// застосунку.
+///
+/// Тому заливку малюємо самі: її вигляд не залежить ні від фокуса вікна, ні
+/// від системного акцентного кольору.
+private struct VoidButtonStyle: ButtonStyle {
+    enum Kind {
+        /// Світла заливка з темним написом — найбільший контраст на чорному.
+        case filled
+        /// Лише обведення: для другорядної дії поруч.
+        case outlined
+    }
+
+    let kind: Kind
+    let fontSize: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: fontSize, weight: .medium))
+            .foregroundStyle(Color(
+                kind == .filled ? BookAppearance.voidColor : BookAppearance.onVoidColor
+            ))
+            .padding(.horizontal, fontSize)
+            .padding(.vertical, fontSize * 0.55)
+            .background(background)
+            .contentShape(.capsule)
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    @ViewBuilder
+    private var background: some View {
+        if kind == .filled {
+            Capsule().fill(Color(BookAppearance.onVoidColor))
+        } else {
+            Capsule().strokeBorder(Color(BookAppearance.onVoidColor).opacity(0.5), lineWidth: 1.5)
+        }
+    }
+}
+
 /// Екран, коли книга не обрана.
 ///
 /// Існує тому, що досі єдиним способом щось прочитати був зашитий зразок, і з
@@ -173,23 +253,15 @@ private struct OpenBookPlaceholder: View {
             .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
 
             HStack(spacing: 18) {
-                // Світла заливка з темною підписом: на чорному тлі це
-                // єдине поєднання, що дає достатній контраст.
                 Button("Відкрити книгу…") { store.isImporting = true }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(BookAppearance.onVoidColor))
-                    .foregroundStyle(Color(BookAppearance.voidColor))
+                    .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize))
 
                 Button("Відкрити зразок") { store.openSample() }
-                    .buttonStyle(.bordered)
-                    .tint(Color(BookAppearance.onVoidColor))
-                    .foregroundStyle(Color(BookAppearance.onVoidColor))
+                    .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
             }
-            .font(.system(size: buttonSize, weight: .medium))
-            .controlSize(.extraLarge)
             .padding(.top, 8)
 
-            Text("Зараз підтримуються EPUB, TXT, Markdown, PDF і CBZ.\nFB2, RTF і MOBI — у наступних етапах.")
+            Text("Зараз підтримуються EPUB, TXT, Markdown, RTF, PDF і CBZ.\nFB2 — у наступному етапі.")
                 .font(.system(size: noteSize))
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
