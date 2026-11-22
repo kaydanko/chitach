@@ -41,6 +41,7 @@ struct ReaderView: View {
     /// застосовуємо — інакше повзунок виривався б з-під пальця.
     @State private var sliderValue: Double = 0
     @State private var isScrubbing = false
+    @State private var isHoveringScrubber = false
 
     private enum PageDirection { case backward, forward }
 
@@ -246,25 +247,103 @@ struct ReaderView: View {
         .background(Color(BookAppearance.footerColor))
     }
 
-    /// Повзунок переходу на довільне місце книги.
+    /// Смуга переходу на довільне місце книги.
     ///
-    /// Гортання по одній сторінці — єдиний спосіб рухатися, якого було
-    /// недостатньо: щоб дістатися кінця тисячосторінкової книги, довелося б
-    /// клацати тисячу разів.
+    /// Гортання по одній сторінці було єдиним способом рухатися: щоб
+    /// дістатися кінця тисячосторінкової книги, довелося б клацнути тисячу
+    /// разів.
+    ///
+    /// У спокої це тонка смуга без мітки, щоб не відтягувати увагу від
+    /// тексту. Під вказівником вона товщає, зʼявляється мітка з номером
+    /// сторінки, і її можна тягнути.
+    ///
+    /// Висота блоку стала, товщає лише сама смуга — інакше підвал
+    /// підстрибував би під вказівником.
     private var scrubber: some View {
-        Slider(
-            value: $sliderValue,
-            in: 0 ... 1,
-            onEditingChanged: { editing in
-                isScrubbing = editing
-                guard !editing else { return }
-                Task { await host.go(toProgression: sliderValue) }
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let isActive = isHoveringScrubber || isScrubbing
+            let shown = min(max(isScrubbing ? sliderValue : progress, 0), 1)
+            let trackHeight: CGFloat = isActive ? 9 : 3
+            let thumbSize: CGFloat = 17
+            let centre = min(max(width * shown, thumbSize / 2), max(width - thumbSize / 2, thumbSize / 2))
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.16))
+                    .frame(height: trackHeight)
+
+                Capsule()
+                    .fill(Color(BookAppearance.paperColor).opacity(0.85))
+                    .frame(width: max(0, width * shown), height: trackHeight)
+
+                if isActive {
+                    Circle()
+                        .fill(Color(BookAppearance.paperColor))
+                        .frame(width: thumbSize, height: thumbSize)
+                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                        .offset(x: centre - thumbSize / 2)
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
-        )
-        .controlSize(.mini)
-        .tint(Color(BookAppearance.paperColor))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Ціль наведення й захоплення — уся висота блоку, а не сама
+            // смуга: у тонку смугу в 3 pt влучити важко.
+            .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.14), value: isActive)
+            .onHover { hovering in
+                isHoveringScrubber = hovering
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        isScrubbing = true
+                        sliderValue = min(max(value.location.x / max(width, 1), 0), 1)
+                    }
+                    .onEnded { _ in
+                        let target = sliderValue
+                        isScrubbing = false
+                        Task { await host.go(toProgression: target) }
+                    }
+            )
+            .overlay(alignment: .topLeading) {
+                if isActive {
+                    scrubberLabel
+                        .offset(x: labelOffset(centre: centre, width: width), y: -26)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .frame(height: 20)
         .padding(.horizontal, 12)
-        .padding(.top, 4)
+    }
+
+    /// Мітка з номером сторінки над міткою-повзунком.
+    private var scrubberLabel: some View {
+        Text(scrubberPageText)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(Color(BookAppearance.voidColor))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Color(BookAppearance.paperColor), in: .capsule)
+            .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+            .fixedSize()
+    }
+
+    private var scrubberPageText: String {
+        let shown = min(max(isScrubbing ? sliderValue : progress, 0), 1)
+        guard host.totalPositions > 0 else {
+            return "\(Int((shown * 100).rounded()))%"
+        }
+        let page = max(1, Int((shown * Double(host.totalPositions)).rounded()))
+        return "\(page) / \(host.totalPositions)"
+    }
+
+    /// Мітка йде за повзунком, але не вилазить за краї смуги.
+    private func labelOffset(centre: CGFloat, width: CGFloat) -> CGFloat {
+        let estimated: CGFloat = 86
+        return min(max(centre - estimated / 2, 0), max(width - estimated, 0))
     }
 
     private func jumpButton(
