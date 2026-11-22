@@ -32,35 +32,47 @@ struct ContentView: View {
         @Bindable var store = store
 
         GeometryReader { geometry in
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(BookAppearance.voidColor).ignoresSafeArea())
-                // Перетягування приймається двома каналами навмисно.
-                //
-                // Жоден з них поодинці досі не спрацював, а з коду не видно,
-                // котрий саме мовчить: UIKit віддає кидок найглибшій
-                // взаємодії, тож одночасно вони не спрацюють, зате журнал
-                // одразу покаже, хто з них отримав подію. Повтор, якби він
-                // усе ж стався, відсіюється у сховищі.
-                .background(WindowDropCatcher(isTargeted: $isWindowDropTargeted) { providers in
-                    store.open(providers: providers, source: "вікно")
-                })
-                .onDrop(of: [.item], isTargeted: $isViewDropTargeted) { providers in
-                    store.open(providers: providers, source: "SwiftUI")
+            // Бібліотека накриває вміст, а не підмінює його. Якби вона
+            // ставала на місце читалки, та щоразу демонтувалася б і
+            // збиралася знову — разом із WKWebView і місцем у книзі.
+            ZStack {
+                content
+
+                if store.isShowingLibrary {
+                    LibraryView(onClose: { store.isShowingLibrary = false })
+                        .background(Color(BookAppearance.voidColor).ignoresSafeArea())
+                        .transition(.opacity)
                 }
-                .overlay { dropHighlight }
-                .fileImporter(
-                    isPresented: $store.isImporting,
-                    allowedContentTypes: BookImportService.contentTypes
-                ) { result in
-                    switch result {
-                    case let .success(url): store.open(fileURL: url)
-                    case let .failure(error): store.errorMessage = error.localizedDescription
-                    }
+            }
+            .animation(.easeOut(duration: 0.16), value: store.isShowingLibrary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(BookAppearance.voidColor).ignoresSafeArea())
+            // Перетягування приймається двома каналами навмисно.
+            //
+            // Жоден з них поодинці досі не спрацював, а з коду не видно,
+            // котрий саме мовчить: UIKit віддає кидок найглибшій
+            // взаємодії, тож одночасно вони не спрацюють, зате журнал
+            // одразу покаже, хто з них отримав подію. Повтор, якби він
+            // усе ж стався, відсіюється у сховищі.
+            .background(WindowDropCatcher(isTargeted: $isWindowDropTargeted) { providers in
+                store.open(providers: providers, source: "вікно")
+            })
+            .onDrop(of: [.item], isTargeted: $isViewDropTargeted) { providers in
+                store.open(providers: providers, source: "SwiftUI")
+            }
+            .overlay { dropHighlight }
+            .fileImporter(
+                isPresented: $store.isImporting,
+                allowedContentTypes: BookImportService.contentTypes
+            ) { result in
+                switch result {
+                case let .success(url): store.open(fileURL: url)
+                case let .failure(error): store.errorMessage = error.localizedDescription
                 }
-                .task(id: store.bookURL) {
-                    await reload(width: geometry.size.width)
-                }
+            }
+            .task(id: store.bookURL) {
+                await reload(width: geometry.size.width)
+            }
         }
         .alert(
             "Не вдалося відкрити",
@@ -79,13 +91,7 @@ struct ContentView: View {
     private var content: some View {
         switch state {
         case .empty:
-            // Заставка лише доти, доки бібліотека порожня: коли книги вже є,
-            // корисніше одразу показати їх, а не пропонувати відкрити файл.
-            if store.library.isEmpty {
-                OpenBookPlaceholder()
-            } else {
-                LibraryView()
-            }
+            OpenBookPlaceholder()
 
         case .loading:
             ProgressView()
@@ -264,11 +270,26 @@ private struct OpenBookPlaceholder: View {
             .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
 
             HStack(spacing: 18) {
-                Button("Відкрити книгу…") { store.isImporting = true }
+                // Коли книги вже додані, головна дія — повернутися до них,
+                // а не шукати новий файл. На порожній бібліотеці навпаки:
+                // повертатися нема до чого, зате є зразок, щоб застосунок
+                // можна було оцінити без власної книжки.
+                if store.library.isEmpty {
+                    Button("Відкрити книгу…") { store.isImporting = true }
+                        .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize))
+
+                    Button("Відкрити зразок") { store.openSample() }
+                        .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
+                } else {
+                    Button("Бібліотека (\(store.library.count))") {
+                        store.refreshLibrary()
+                        store.isShowingLibrary = true
+                    }
                     .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize))
 
-                Button("Відкрити зразок") { store.openSample() }
-                    .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
+                    Button("Відкрити книгу…") { store.isImporting = true }
+                        .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
+                }
             }
             .padding(.top, 8)
 

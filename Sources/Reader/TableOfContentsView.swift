@@ -57,20 +57,13 @@ struct TableOfContentsView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 30, height: 26)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color.white.opacity(0.75))
-            .accessibilityLabel("Закрити зміст")
-
             Text("Зміст")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(Color(BookAppearance.onVoidColor))
 
             Spacer()
+
+            CloseButton(action: onClose, label: "Закрити зміст")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)

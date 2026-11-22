@@ -125,10 +125,6 @@ struct ReaderView: View {
             AppearanceSettingsView()
                 .environment(store)
         }
-        .sheet(isPresented: $store.isShowingLibrary) {
-            LibraryView(onClose: { store.isShowingLibrary = false })
-                .environment(store)
-        }
         .sheet(isPresented: $isShowingContents) {
             TableOfContentsView(
                 entries: contents,

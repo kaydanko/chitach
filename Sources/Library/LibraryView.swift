@@ -69,17 +69,6 @@ struct LibraryView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            if let onClose {
-                Button(action: onClose) {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 30, height: 26)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.white.opacity(0.75))
-                .accessibilityLabel("Закрити бібліотеку")
-            }
-
             Text("Бібліотека")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(Color(BookAppearance.onVoidColor))
@@ -102,6 +91,13 @@ struct LibraryView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(Color(BookAppearance.onVoidColor))
+
+            // Хрестик праворуч, а не стрілка ліворуч: закриття шукають саме
+            // в правому верхньому куті, і «вниз» ліворуч читалося як щось
+            // інше — згорнути, повернутися, будь-що.
+            if let onClose {
+                CloseButton(action: onClose, label: "Закрити бібліотеку")
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
