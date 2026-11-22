@@ -239,6 +239,23 @@ final class ReaderHostViewController: UIViewController {
         }
     }
 
+    // MARK: Зміст
+
+    /// Зміст книги. Порожній, якщо його немає.
+    ///
+    /// Запитуємо щоразу, а не кешуємо: Readium сам тримає розібрану
+    /// публікацію, виклик дешевий, а кеш довелося б скидати при зміні книги.
+    func tableOfContents() async -> [ReadiumShared.Link] {
+        (try? await navigator.publication.tableOfContents().get()) ?? []
+    }
+
+    @discardableResult
+    func go(to link: ReadiumShared.Link) async -> Bool {
+        await turnPage {
+            await navigator.go(to: link, options: NavigatorGoOptions(animated: false))
+        }
+    }
+
     @discardableResult
     func goToStart() async -> Bool {
         await go(toProgression: 0)

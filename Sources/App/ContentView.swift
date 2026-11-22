@@ -79,7 +79,13 @@ struct ContentView: View {
     private var content: some View {
         switch state {
         case .empty:
-            OpenBookPlaceholder()
+            // Заставка лише доти, доки бібліотека порожня: коли книги вже є,
+            // корисніше одразу показати їх, а не пропонувати відкрити файл.
+            if store.library.isEmpty {
+                OpenBookPlaceholder()
+            } else {
+                LibraryView()
+            }
 
         case .loading:
             ProgressView()
@@ -146,6 +152,11 @@ struct ContentView: View {
         do {
             let opened = try await ReadiumPublicationService()
                 .open(fileURL: url, allowUserInteraction: true)
+
+            // Назва й автор відомі лише після розбору — звідси бібліотека їх
+            // і бере, замість показувати ім`я файлу.
+            LibraryStore.remember(opened.publication, for: url)
+            store.refreshLibrary()
 
             // Кількість колонок визначаємо до створення навігатора, щоб на
             // старті не було зайвої перепагінації.
@@ -261,7 +272,7 @@ private struct OpenBookPlaceholder: View {
             }
             .padding(.top, 8)
 
-            Text("Зараз підтримуються EPUB, TXT, Markdown, RTF, PDF і CBZ.\nFB2 — у наступному етапі.")
+            Text("Зараз підтримуються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.")
                 .font(.system(size: noteSize))
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)

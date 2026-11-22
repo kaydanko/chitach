@@ -38,6 +38,17 @@ enum EPUBBuilder {
 
     // MARK: - Складання
 
+    /// Каталог уже зібраної книги, якщо вона є в кеші.
+    ///
+    /// Окремо від ``build(metadata:chapters:resources:)``, бо туди треба
+    /// прийти з готовими розділами — тобто вже розібравши файл. Для FB2 це
+    /// розпакування й увесь XML, і саме їх кеш має заощадити.
+    static func cachedBook(identifier: String) -> URL? {
+        let destination = cacheDirectory.appendingPathComponent(identifier, isDirectory: true)
+        let marker = destination.appendingPathComponent("EPUB/package.opf")
+        return FileManager.default.fileExists(atPath: marker.path) ? destination : nil
+    }
+
     /// Повертає каталог готового EPUB. Якщо такий уже зібрано, віддає кеш.
     static func build(
         metadata: Metadata,
@@ -124,6 +135,7 @@ enum EPUBBuilder {
         <head>
           <meta charset="UTF-8"/>
           <title>\(escape(chapter.title ?? fallbackTitle))</title>
+          <style>\(structuralCSS)</style>
         </head>
         <body>
         \(chapter.bodyXHTML)
@@ -131,6 +143,42 @@ enum EPUBBuilder {
         </html>
         """
     }
+
+    /// Стилі для розмітки, якої не буває у звичайному EPUB.
+    ///
+    /// Вірші, строфи, епіграфи й підписи приходять із FB2, і без цих правил
+    /// поезія виглядає як низка звичайних абзаців: рядки розсунуті на повний
+    /// міжабзацний відступ, вирівняні по ширині й з червоним рядком. Для
+    /// формату, яким поширюють здебільшого художнє, це помітно зразу.
+    ///
+    /// `!important` обовʼязковий: Readium CSS задає виключку й відступи теж
+    /// через нього, і без цього виграє вона.
+    private static let structuralCSS = """
+    .poem { margin: 1.1em 0; }
+    .stanza { margin-bottom: 1em; }
+    .stanza:last-child { margin-bottom: 0; }
+    .verse {
+      margin: 0 !important;
+      line-height: 1.45;
+    }
+    /* Вирівнювання й червоний рядок тут не задаємо: Readium CSS нав'язує
+       виключку користувача специфічнішим правилом, і клас йому програє.
+       Це робить вбудований стиль — див. FB2Parser. */
+    .epigraph {
+      margin: 1.2em 0 1.4em 12%;
+      font-style: italic;
+      border: 0;
+      padding: 0;
+    }
+    .cite { margin: 1.1em 0 1.1em 6%; }
+    .text-author { font-style: italic; margin-top: 0.4em; }
+    .subtitle { font-weight: 600; margin: 1.1em 0 0.7em; }
+    .annotation { margin: 0 0 1.4em; font-style: italic; }
+    .empty-line { margin: 0 !important; }
+    .note { text-decoration: none; }
+    .backref { font-size: 0.85em; margin: 0.3em 0 1em !important; }
+    img { max-width: 100%; height: auto; }
+    """
 
     private static func navXHTML(chapters: [Chapter], metadata: Metadata) -> String {
         let items = chapters.enumerated().map { index, chapter in

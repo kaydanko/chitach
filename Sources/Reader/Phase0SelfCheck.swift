@@ -62,20 +62,50 @@ enum Phase0SelfCheck {
         }
 
         // 3. Гортання вперед.
-        let forwardAccepted = await navigator.goForward()
-        let movedForward = await wait {
-            (navigator.currentLocation?.locations.totalProgression ?? 0) > startProgression
+        //
+        // Дві спроби навмисно. Одна не дає відрізнити «гортання зламане» від
+        // «навігатор ще не готовий»: на старті з відновленої позиції перша
+        // спроба зникала безслідно, і з одного виміру причину було не видно.
+        let began = ContinuousClock.now
+        var forwardAccepted = false
+        var movedForward = false
+        var attempts = 0
+
+        while attempts < 20, !movedForward {
+            attempts += 1
+            // Саме `host`, а не `navigator`: кнопки гортання в застосунку
+            // ходять через обгортку, і перевіряти треба її, а не сирий
+            // навігатор. На сирому перше гортання після відновлення позиції
+            // приймається, але не відбувається.
+            forwardAccepted = await host.goForward()
+            movedForward = await wait(1) {
+                (navigator.currentLocation?.locations.totalProgression ?? 0) > startProgression
+            }
+            if !movedForward { try? await Task.sleep(for: .milliseconds(250)) }
         }
+
         let afterForward = navigator.currentLocation?.locations.totalProgression ?? 0
+        let readyAfter = Double((ContinuousClock.now - began).components.seconds) * 1000
+            + Double((ContinuousClock.now - began).components.attoseconds) / 1e15
+
+        // Умисно вимагаємо успіху з ПЕРШОЇ спроби. Відома вада: після
+        // відновлення збереженої позиції перше гортання приймається, але не
+        // відбувається — перехід щось скасовує. Повторні спроби лишені тут
+        // як вимірювач, а не як прикриття: доки причину не знайдено, цей
+        // рядок має лишатися FAIL із числом, а не тихим PASS.
         log(
-            forwardAccepted && movedForward,
-            String(format: "goForward: %.5f → %.5f", startProgression, afterForward)
+            forwardAccepted && movedForward && attempts == 1,
+            String(
+                format: "goForward: %.5f → %.5f (спроб %d, рух через %.0f мс)",
+                startProgression, afterForward, attempts, readyAfter
+            )
         )
 
-        // 4. Гортання назад.
-        let backAccepted = await navigator.goBackward()
-        let movedBack = await wait {
-            (navigator.currentLocation?.locations.totalProgression ?? 1) <= startProgression
+        // 4. Гортання назад. Вимагаємо саме руху: умова «не далі, ніж було»
+        // проходила б і тоді, коли сторінка взагалі не змінилася.
+        let backAccepted = await host.goBackward()
+        let movedBack = await wait(6) {
+            (navigator.currentLocation?.locations.totalProgression ?? 1) < afterForward
         }
         let afterBack = navigator.currentLocation?.locations.totalProgression ?? 0
         log(
@@ -175,6 +205,27 @@ enum Phase0SelfCheck {
                     FileManager.default.fileExists(atPath: imported.path),
                     "перетягування: книга в бібліотеці — \(imported.lastPathComponent)"
                 )
+
+                // Та сама книга вдруге не має лягти другою копією: інакше
+                // перелік засмічується, а книга ще й губить місце читання,
+                // бо копія приходить із нульовим.
+                if let again = NSItemProvider(contentsOf: sample) {
+                    let second = try await BookImportService.importBook(from: again)
+                    log(second == imported, "повторне додавання: \(second.lastPathComponent)")
+                } else {
+                    log(false, "повторне додавання: провайдера не зібрати")
+                }
+
+                // Той самий вміст під іншою назвою — теж та сама книга:
+                // звіряємо вміст, а не імена.
+                let renamed = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("Зовсім інша назва.epub")
+                try? FileManager.default.removeItem(at: renamed)
+                try FileManager.default.copyItem(at: sample, to: renamed)
+                let third = try BookImportService.importBook(from: renamed)
+                log(third == imported, "інша назва, той самий вміст: \(third.lastPathComponent)")
+                try? FileManager.default.removeItem(at: renamed)
+
                 try? FileManager.default.removeItem(at: imported)
             } catch {
                 log(false, "перетягування: \(error.localizedDescription)")
@@ -183,6 +234,61 @@ enum Phase0SelfCheck {
             log(false, "перетягування: не вдалося зібрати провайдера зі зразка")
         }
 
+        // 9. Зміст: чи є він і чи переходить перехід.
+        let toc = await host.tableOfContents()
+        let entries = TableOfContentsEntry.flatten(toc)
+        log(entries.count > 1, "зміст: записів \(entries.count), рівнів \((entries.map(\.depth).max() ?? 0) + 1)")
+
+        if let target = entries.last {
+            let before = navigator.currentLocation?.locations.totalProgression ?? 0
+            let jumped = await host.go(to: target.link)
+            let moved = await wait(5) {
+                abs((navigator.currentLocation?.locations.totalProgression ?? 0) - before) > 0.01
+            }
+            log(
+                jumped && moved,
+                String(
+                    format: "зміст: перехід до «%@» — %.4f → %.4f",
+                    target.title, before,
+                    navigator.currentLocation?.locations.totalProgression ?? -1
+                )
+            )
+        } else {
+            log(false, "зміст: порожній, перехід перевірити нема на чому")
+        }
+
+        // 10. Прибирання копій, що вже лежать у бібліотеці.
+        //
+        // Саме «вже лежать»: повторне додавання тепер упізнається, але
+        // бібліотеки, зібрані раніше, повні копій із номерами в назві.
+        // Вміст беремо унікальний, щоб група складалася лише з наших файлів.
+        let books = BookImportService.booksDirectory
+        let payload = Data("Перевірка дублікатів \(UUID().uuidString)\n".utf8)
+        let copies = ["Дубль.txt", "Дубль 2.txt", "Дубль 3.txt", "Дубль 4.txt"]
+            .map { books.appendingPathComponent($0) }
+
+        for copy in copies {
+            try? FileManager.default.removeItem(at: copy)
+            try? payload.write(to: copy)
+        }
+
+        // Поступ позначаємо не в першій копії, а в третій: лишитися має та,
+        // у якій читач просунувся найдалі, а не та, що трапилася першою.
+        let survivor = copies[2]
+        if let locator = navigator.currentLocation {
+            ReadingPositionStore.save(locator, for: survivor)
+        }
+
+        let removed = LibraryStore.removeDuplicates()
+        let left = copies.filter { FileManager.default.fileExists(atPath: $0.path) }
+        log(removed == 3 && left.count == 1, "прибирання копій: вилучено \(removed), лишилось \(left.count)")
+        log(
+            left.first?.lastPathComponent == survivor.lastPathComponent,
+            "лишилася саме читана копія — \(left.first?.lastPathComponent ?? "жодної")"
+        )
+        left.forEach { try? FileManager.default.removeItem(at: $0) }
+        ReadingPositionStore.forget(survivor)
+
         log(host.transparentWebViewCount > 0,
             "WKWebView знайдено в ієрархії: \(host.transparentWebViewCount)")
 
@@ -190,8 +296,80 @@ enum Phase0SelfCheck {
 
         await diagnoseStyles(navigator: navigator)
 
+        await checkFB2()
+
         print("[SELFTEST] ===== кінець =====")
     }
+
+    /// FB2 від файлу до `Publication`.
+    ///
+    /// Розбірник окремо перевіряє `Scripts/test-fb2.sh`; тут — те, чого без
+    /// застосунку не перевірити: що зібраний EPUB приймає сам Readium, з
+    /// обкладинкою, змістом і всіма розділами, і що друге відкриття бере кеш.
+    @MainActor
+    private static func checkFB2() async {
+        print("[SELFTEST] ----- FB2 -----")
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("selftest-\(UUID().uuidString).fb2")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        do {
+            try Data(sampleFB2.utf8).write(to: url)
+
+            let started = Date()
+            let directory = try FB2ToEPUBConverter.convert(fileURL: url)
+            let firstTime = Date().timeIntervalSince(started)
+            defer { try? FileManager.default.removeItem(at: directory) }
+
+            let restarted = Date()
+            let again = try FB2ToEPUBConverter.convert(fileURL: url)
+            let secondTime = Date().timeIntervalSince(restarted)
+            log(again == directory, String(
+                format: "FB2: повторне відкриття з кешу (%.1f мс проти %.1f мс)",
+                secondTime * 1000, firstTime * 1000
+            ))
+
+            let publication = try await ReadiumPublicationService().openDirectory(directory).publication
+            let metadata = publication.metadata
+            log(metadata.title == "Самоперевірка FB2", "FB2: назва — \(metadata.title ?? "nil")")
+            log(metadata.authors.map(\.name) == ["Леся Українка"],
+                "FB2: автори — \(metadata.authors.map(\.name))")
+            log(publication.readingOrder.count == 2,
+                "FB2: розділів у readingOrder — \(publication.readingOrder.count) (очікуємо текст і примітки)")
+
+            let toc = (try? await publication.tableOfContents().get()) ?? []
+            log(toc.map(\.title) == ["Перший розділ", "Примітки"],
+                "FB2: зміст — \(toc.map { $0.title ?? "—" })")
+
+            let cover = try? await publication.cover().get()
+            log(cover != nil, "FB2: обкладинка — \(cover.map { "\(Int($0.size.width))×\(Int($0.size.height))" } ?? "немає")")
+        } catch {
+            log(false, "FB2: \(error.localizedDescription)")
+        }
+    }
+
+    /// Найменша книга, де є все, що Readium мусить прийняти: обкладинка,
+    /// картинка в тексті, зноска з окремим тілом. Картинка — PNG 2×2.
+    private static let sampleFB2 = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+    <description><title-info>
+      <author><first-name>Леся</first-name><last-name>Українка</last-name></author>
+      <book-title>Самоперевірка FB2</book-title>
+      <coverpage><image l:href="#c"/></coverpage>
+      <lang>uk</lang>
+    </title-info></description>
+    <body>
+      <section id="s1"><title><p>Перший розділ</p></title>
+        <p><emphasis>Текст</emphasis> зі зноскою<a l:href="#n1" type="note">[1]</a>.</p>
+        <poem><stanza><v>Рядок перший</v><v>Рядок другий</v></stanza></poem>
+        <image l:href="#c"/>
+      </section>
+    </body>
+    <body name="notes"><section id="n1"><p>Зноска.</p></section></body>
+    <binary id="c" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR42mNgCN8OQv+vgxAAI54FyapE9b4AAAAASUVORK5CYII=</binary>
+    </FictionBook>
+    """
 
     /// Друкує ієрархію видів із кольорами — щоб знайти, хто малює біле.
     @MainActor

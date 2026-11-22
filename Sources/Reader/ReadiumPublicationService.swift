@@ -86,7 +86,7 @@ final class ReadiumPublicationService {
     /// Відкриває вже підготовлений каталог EPUB (розпакований).
     ///
     /// Використовується для форматів, які Readium не знає й які ми спершу
-    /// конвертуємо: TXT, Markdown і RTF сьогодні, FB2 у Фазі 4. Пакувати
+    /// конвертуємо: TXT, Markdown, RTF і FB2. Пакувати
     /// результат у ZIP не треба — `DirectoryContainer` подає каталог як
     /// звичайний контейнер.
     func openDirectory(_ directoryURL: URL) async throws -> OpenedPublication {
@@ -129,6 +129,9 @@ final class ReadiumPublicationService {
         }
         if RTFToEPUBConverter.handles(fileURL.pathExtension) {
             return try await openDirectory(RTFToEPUBConverter.convert(fileURL: fileURL))
+        }
+        if FB2ToEPUBConverter.handles(fileURL) {
+            return try await openDirectory(FB2ToEPUBConverter.convert(fileURL: fileURL))
         }
 
         guard let url = FileURL(url: fileURL) else {

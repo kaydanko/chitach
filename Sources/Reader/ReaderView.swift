@@ -49,6 +49,11 @@ struct ReaderView: View {
     @State private var isDraggingScrubber = false
     @State private var isHoveringScrubber = false
 
+    /// Зміст книги. Читаємо не наперед, а коли його просять: у великій книзі
+    /// це зайва робота на кожному відкритті.
+    @State private var contents: [TableOfContentsEntry] = []
+    @State private var isShowingContents = false
+
     private enum PageDirection { case backward, forward }
 
     /// Невеликий допуск: межі діапазону рідко дорівнюють 0 і 1 точно.
@@ -84,6 +89,15 @@ struct ReaderView: View {
             }
             // ⌘ + коліщатко миші.
             host.onFontSizeStep = { steps in store.stepFontSize(by: steps) }
+
+            // Перевірка вигляду без вказівника — так само, як `--settings`
+            // і `--library`. Прибрати разом з ними, коли запрацює тест-ранер.
+            if CommandLine.arguments.contains("--contents") {
+                Task {
+                    contents = TableOfContentsEntry.flatten(await host.tableOfContents())
+                    isShowingContents = true
+                }
+            }
         }
         .onChange(of: store.pendingJump) { _, jump in
             guard let jump else { return }
@@ -101,14 +115,38 @@ struct ReaderView: View {
         .sheet(isPresented: $store.isShowingSettings) {
             AppearanceSettingsView()
         }
+        .sheet(isPresented: $store.isShowingLibrary) {
+            LibraryView(onClose: { store.isShowingLibrary = false })
+        }
+        .sheet(isPresented: $isShowingContents) {
+            TableOfContentsView(
+                entries: contents,
+                currentResource: locator?.href.removingQuery().removingFragment().string,
+                onSelect: { entry in
+                    isShowingContents = false
+                    Task { await host.go(to: entry.link) }
+                },
+                onClose: { isShowingContents = false }
+            )
+        }
     }
 
     // MARK: - Шапка
 
     private var topBar: some View {
         HStack(spacing: 14) {
-            toolbarButton("chevron.left", label: "До бібліотеки") { store.closeBook() }
-            toolbarButton("folder", label: "Відкрити книгу") { store.isImporting = true }
+            toolbarButton("chevron.left", label: "Закрити книгу") { store.closeBook() }
+            toolbarButton("books.vertical", label: "Бібліотека") {
+                store.refreshLibrary()
+                store.isShowingLibrary = true
+            }
+            toolbarButton("folder", label: "Відкрити файл") { store.isImporting = true }
+            toolbarButton("list.bullet", label: "Зміст") {
+                Task {
+                    contents = TableOfContentsEntry.flatten(await host.tableOfContents())
+                    isShowingContents = true
+                }
+            }
 
             Spacer(minLength: 12)
 

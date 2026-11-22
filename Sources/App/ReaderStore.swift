@@ -27,6 +27,15 @@ final class ReaderStore {
     /// Чи показаний системний вибір файлів.
     var isImporting = false
 
+    /// Чи показаний перелік книг поверх читання.
+    var isShowingLibrary = false
+
+    /// Додані книги. Тримаємо в сховищі, а не перечитуємо теку в кожному
+    /// відображенні: перелік потрібен і початковому екрану, і аркушу поверх
+    /// читання, і оновлюється лише тоді, коли книг справді побільшало чи
+    /// поменшало.
+    private(set) var library: [LibraryBook] = []
+
     /// Текст помилки для користувача, якщо імпорт не вдався.
     var errorMessage: String?
 
@@ -133,16 +142,23 @@ final class ReaderStore {
         // перевіряти його вигляд без вказівника. Разом із `--open` та
         // `--selftest` прибрати, коли запрацює тест-ранер.
         isShowingSettings = CommandLine.arguments.contains("--settings")
+        isShowingLibrary = CommandLine.arguments.contains("--library")
         ColorPanelPlacement.seedIfNeeded()
 
         // Запуск із файлом: `--open <шлях або імʼя у теці Books>`.
         // Потрібно для перевірки без UI; користувачу стає в пригоді, коли
         // треба швидко відкрити конкретний файл.
-        if let requested = Self.requestedBookFromLaunchArguments() {
+        if CommandLine.arguments.contains("--no-book") {
+            // Навмисно без книги: інакше початковий екран не побачити, бо
+            // застосунок завжди відновлює останню прочитану.
+            bookURL = nil
+        } else if let requested = Self.requestedBookFromLaunchArguments() {
             bookURL = requested
         } else {
             bookURL = Self.restoreLastBook()
         }
+
+        refreshLibrary()
     }
 
     private static func requestedBookFromLaunchArguments() -> URL? {
@@ -193,6 +209,7 @@ final class ReaderStore {
                 DropLog.note("\(source): книга в бібліотеці — \(url.lastPathComponent)")
                 bookURL = url
                 errorMessage = nil
+                refreshLibrary()
             } catch {
                 DropLog.note("\(source): не вдалося — \(error.localizedDescription)")
                 errorMessage = error.localizedDescription
@@ -206,6 +223,30 @@ final class ReaderStore {
         do {
             bookURL = try BookImportService.importBook(from: fileURL)
             errorMessage = nil
+            refreshLibrary()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Бібліотека
+
+    func refreshLibrary() {
+        library = LibraryStore.books()
+    }
+
+    func open(book: LibraryBook) {
+        bookURL = book.url
+        isShowingLibrary = false
+    }
+
+    func delete(_ book: LibraryBook) {
+        do {
+            // Якщо вилучають саме ту книгу, яку читаємо, повертаємося до
+            // переліку: інакше читалка лишилася б із файлом, якого немає.
+            if book.url == bookURL { bookURL = nil }
+            try LibraryStore.remove(book)
+            refreshLibrary()
         } catch {
             errorMessage = error.localizedDescription
         }

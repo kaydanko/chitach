@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import ReadiumShared
 import UniformTypeIdentifiers
@@ -30,8 +31,7 @@ enum BookImportService {
             case let .unsupportedFormat(ext):
                 """
                 Формат «\(ext)» поки не підтримується.
-                Зараз відкриваються EPUB, TXT, Markdown, RTF, PDF і CBZ.
-                FB2 буде в наступному етапі.
+                Зараз відкриваються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.
                 """
             }
         }
@@ -46,8 +46,19 @@ enum BookImportService {
         "epub", "pdf", "cbz", "webpub", "audiobook", "lcpa", "lcpdf", "divina",
         // Конвертуємо ми.
         "txt", "text", "md", "markdown",
-        "rtf", "rtfd",
+        "rtf", "rtfd", "fb2",
     ]
+
+    /// Чи вміє застосунок відкрити цей файл.
+    ///
+    /// Одне правило на всіх, бо перевіряти доводиться у двох місцях — при
+    /// імпорті й при складанні переліку бібліотеки, — і вони вже встигли
+    /// розійтися: `книга.fb2.zip` імпортувалася, але в переліку не
+    /// показувалася, бо розширення там `zip`.
+    static func canOpen(_ url: URL) -> Bool {
+        supportedExtensions.contains(url.pathExtension.lowercased())
+            || FB2ZipExtractor.handles(url)
+    }
 
     /// Тека з імпортованими книгами всередині контейнера застосунку.
     static var booksDirectory: URL {
@@ -65,12 +76,22 @@ enum BookImportService {
     /// недійсним, і книга «зникає» при наступному запуску.
     static func importBook(from source: URL) throws -> URL {
         let ext = source.pathExtension.lowercased()
-        guard supportedExtensions.contains(ext) else {
+        // Довільний ZIP не приймаємо: за розширенням не видно, що всередині.
+        // `.fb2.zip` — усталена назва, під якою бібліотеки віддають FB2.
+        guard canOpen(source) else {
             throw ImportError.unsupportedFormat(ext.isEmpty ? "без розширення" : ext)
         }
 
         let needsScope = source.startAccessingSecurityScopedResource()
         defer { if needsScope { source.stopAccessingSecurityScopedResource() } }
+
+        // Ту саму книгу часто додають удруге — перетягнули ще раз, бо не
+        // помітили, що вона вже є. Друга копія не просто засмічує перелік:
+        // вона приходить із власним, нульовим місцем читання, і книга
+        // «забуває», де її залишили. Тому повертаємо ту, що вже є.
+        if let existing = existingBook(matching: source) {
+            return existing
+        }
 
         let destination = uniqueDestination(for: source.lastPathComponent)
 
@@ -145,11 +166,64 @@ enum BookImportService {
         }
     }
 
+    /// Книга з таким самим вмістом, якщо вона вже в бібліотеці.
+    ///
+    /// Порівнюємо вміст, а не імена: той самий файл легко завантажити під
+    /// назвами `Intermezzo.epub` і `Intermezzo (1).epub`, і за іменами це
+    /// були б різні книги.
+    ///
+    /// Спершу розмір, і лише для збігів — відбиток. Розмір читається з
+    /// метаданих файлу миттєво, тож на бібліотеці в сотні книг рахувати
+    /// доведеться хіба кілька відбитків замість усіх.
+    private static func existingBook(matching source: URL) -> URL? {
+        guard let size = fileSize(of: source), let sourceDigest = digest(of: source) else {
+            return nil
+        }
+
+        let contents = (try? FileManager.default.contentsOfDirectory(
+            at: booksDirectory,
+            includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        return contents.first { candidate in
+            fileSize(of: candidate) == size && digest(of: candidate) == sourceDigest
+        }
+    }
+
+    static func fileSize(of url: URL) -> Int? {
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
+        // Бандл (`.rtfd`) розміру не має — такі не звіряємо, тільки
+        // копіюємо. Трапляються вони рідко, а обходити теку заради
+        // порівняння не варто.
+        guard values?.isDirectory != true else { return nil }
+        return values?.fileSize
+    }
+
+    /// Відбиток вмісту, порціями: книга може важити сотні мегабайтів, і
+    /// читати її в пам`ять цілком заради порівняння не треба.
+    static func digest(of url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+
+        var hasher = SHA256()
+        while let chunk = try? handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
     /// Не перезаписуємо наявні книги: до імені додається номер.
     private static func uniqueDestination(for filename: String) -> URL {
         let directory = booksDirectory
-        let base = (filename as NSString).deletingPathExtension
-        let ext = (filename as NSString).pathExtension
+        var base = (filename as NSString).deletingPathExtension
+        var ext = (filename as NSString).pathExtension
+        // Подвійне розширення тримаємо цілим: «книга.fb2 2.zip» уже не
+        // впізнається як FB2 в архіві, а «книга 2.fb2.zip» — так.
+        if filename.lowercased().hasSuffix(".fb2.zip") {
+            base = String(filename.dropLast(".fb2.zip".count))
+            ext = String(filename.suffix("fb2.zip".count))
+        }
 
         var candidate = directory.appendingPathComponent(filename)
         var counter = 2
@@ -164,9 +238,12 @@ enum BookImportService {
     static var contentTypes: [UTType] {
         var types: [UTType] = [.epub, .plainText, .pdf]
         types.append(.rtf)
-        for ext in ["cbz", "md", "markdown", "rtfd"] {
+        for ext in ["cbz", "md", "markdown", "rtfd", "fb2"] {
             if let type = UTType(filenameExtension: ext) { types.append(type) }
         }
+        // Без цього `.fb2.zip` у виборі файлів сірий. Ширше, ніж треба, —
+        // видно буде й інші архіви, — але чужий ZIP імпорт чесно відхилить.
+        types.append(.zip)
         return types
     }
 }
