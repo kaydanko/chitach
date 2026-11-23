@@ -59,6 +59,19 @@ final class ReaderHostViewController: UIViewController {
     private var isTwoColumns: Bool
     private var isRelayouting = false
 
+    /// Позиція, до якої навігатор ще має доїхати після відкриття.
+    ///
+    /// Відкритий із `initialLocation`, Readium спершу звітує про початок
+    /// розділу (прогрес 0), і лише через 100–700 мс — про відновлену позицію.
+    /// Перша подія — проміжна: за нею не можна ні гортати, ні відкривати
+    /// читалку, ні зберігати місце. Доки це поле не `nil`, хост її тримає.
+    private var pendingRestore: Locator?
+
+    /// Скільки чекати відновлення після першої (проміжної) події, перш ніж
+    /// вважати, що воно не відбудеться. Звичайно воно приходить за 0,1–0,7 с.
+    private static let restoreGiveUp: Duration = .seconds(2)
+    private var restoreGiveUpTask: Task<Void, Never>?
+
     /// Очікувачі найближчої зміни viewport. За ключем — щоб таймаут
     /// будив лише свого очікувача.
     private var viewportWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
@@ -72,6 +85,12 @@ final class ReaderHostViewController: UIViewController {
         self.bookURL = bookURL
         isTwoColumns = startsTwoColumns
         super.init(nibName: nil, bundle: nil)
+
+        // Ціль відновлення беремо в самого навігатора: Readium виставляє
+        // `currentLocation = initialLocation` просто в `init`, тож нового
+        // параметра не треба, а застосунок і тести отримують те саме.
+        // Без `initialLocation` тут `nil` — відновлювати нічого.
+        pendingRestore = navigator.currentLocation
     }
 
     @available(*, unavailable)
@@ -369,7 +388,11 @@ final class ReaderHostViewController: UIViewController {
         isTurningPage = true
         defer { isTurningPage = false }
 
-        await waitUntilLaidOut()
+        // Не гортаємо, доки читалка не готова. Якщо за відведений час вона
+        // так і не стала готовою — відмовляємо, а не женемо гортання навмання:
+        // воно змагалося б із відновленням позиції і лишало сторінку посеред
+        // зсуву (а ця позиція ще й зберігалася б як місце читання).
+        guard await waitUntilReady() else { return false }
 
         // Readium відмовляє гортати, поки не доклав першу сторінку. Найчастіше
         // це перші секунди після запуску, коли застосунок відновлює місце з
@@ -412,10 +435,135 @@ final class ReaderHostViewController: UIViewController {
     /// Коли навігатор уперше повідомив, що сторінку розкладено.
     private var firstLayoutAt: ContinuousClock.Instant?
 
-    private func waitUntilLaidOut(timeout: Duration = .seconds(3)) async {
+    /// Скільки чекати, поки Readium покаже перший розворот, перш ніж гортати
+    /// без цього. Показ настає через 0,2–0,5 с після завантаження; запас
+    /// потрібен лише на випадок, якщо внутрішня поведінка Readium зміниться.
+    private static let revealGrace: Duration = .seconds(1.5)
+
+    /// Чи вже пройшов початковий показ. Чекаємо на нього лише перед першим
+    /// гортанням: наступні розвороти (перемотування, зміст) Readium теж
+    /// спершу ховає, і чекати на кожен означало б гальмувати повзунок.
+    private var isInitialRevealSettled = false
+
+    /// Чи показав Readium розворот, який зараз у видимій області.
+    ///
+    /// Відкриваючи розворот, Readium ховає його (`scrollView.alpha = 0`), чекає
+    /// 0,2 с «поки верстка осяде», виконує початкову прокрутку до збереженої
+    /// позиції — навіть коли вона нульова — і лише тоді показує (`alpha = 1`).
+    /// Усе, що зробити до цього, прокрутка перекриє. Подій про її завершення
+    /// немає: на початку розділу позиція не змінюється, тож viewport мовчить.
+    /// Єдина ознака — сам показ.
+    private var isVisibleSpreadRevealed: Bool {
+        let visible = view.bounds
+        var best: (alpha: CGFloat, area: CGFloat)?
+
+        func walk(_ candidate: UIView) {
+            if let web = candidate as? WKWebView {
+                let frame = web.convert(web.bounds, to: view).intersection(visible)
+                let area = frame.isNull ? 0 : frame.width * frame.height
+                if area > (best?.area ?? 0) { best = (web.scrollView.alpha, area) }
+            }
+            candidate.subviews.forEach(walk)
+        }
+        walk(navigator.view)
+
+        guard let best else { return false }
+        return best.alpha >= 0.99
+    }
+
+    /// Чекає, доки читалка готова до гортання: сторінку розкладено, навігатор
+    /// доїхав до відновленої позиції, а перший розворот показано.
+    ///
+    /// Раніше ознакою готовності була перша подія viewport. Вона описує
+    /// початок розділу, ще до відновлення, і гортання, видане одразу після
+    /// неї, приймалося, а тоді тихо перекривалося початковою прокруткою.
+    /// Обмежено за часом, щоб гортання не зависло, якщо готовність не настане;
+    /// відлік довший за холодний старт WebKit (до 5 с).
+    private func waitUntilReady(timeout: Duration = .seconds(10)) async -> Bool {
         let deadline = ContinuousClock.now + timeout
-        while currentViewport == nil, ContinuousClock.now < deadline {
+        var readySince: ContinuousClock.Instant?
+
+        while ContinuousClock.now < deadline {
+            if currentViewport != nil, pendingRestore == nil {
+                if isInitialRevealSettled { return true }
+
+                let since = readySince ?? .now
+                readySince = since
+                if isVisibleSpreadRevealed || ContinuousClock.now - since > Self.revealGrace {
+                    isInitialRevealSettled = true
+                    return true
+                }
+            }
             try? await Task.sleep(for: .milliseconds(16))
+        }
+        return false
+    }
+
+    // MARK: Відновлення позиції
+
+    /// Чи видно в `viewport` ту позицію, до якої навігатор мав доїхати.
+    ///
+    /// Порівнюємо насамперед із прогресом по всій книзі: його діапазон у
+    /// viewport оновлюється разом із позицією. Діапазони всередині розділу
+    /// (`resources`) на другій події ще застарілі — це виміряно: подія з уже
+    /// правильним сумарним прогресом приходила з ще старим діапазоном розділу,
+    /// і відновлення «зависало» на 300 мс до наступної. Допуск у тисячну — на
+    /// похибку чисел: відновлена сторінка містить ціль, але межа сторінки може
+    /// лягти поруч із нею.
+    private func hasReached(_ target: Locator, in viewport: NavigatorViewport) -> Bool {
+        let slack = 0.001
+
+        func contains(_ range: ClosedRange<Double>, _ value: Double) -> Bool {
+            range.lowerBound - slack <= value && value <= range.upperBound + slack
+        }
+
+        if let total = target.locations.totalProgression {
+            return contains(viewport.progression, total)
+        }
+
+        let targetHref = target.href.removingQuery().removingFragment().string
+        if
+            let progression = target.locations.progression,
+            let visible = viewport.resources.first(where: {
+                $0.href.removingQuery().removingFragment().string == targetHref
+            })
+        {
+            return contains(visible.progression, progression)
+        }
+        if let position = target.locations.position, let positions = viewport.positions {
+            return positions.contains(position)
+        }
+        // Порівнювати нема з чим — вважаємо, що відновлено.
+        return true
+    }
+
+    /// Відновлення завершилось (або від нього відмовились): читалку можна
+    /// показувати, а гортання й збереження позиції — дозволити.
+    private func finishRestoring(with viewport: NavigatorViewport?) {
+        pendingRestore = nil
+        restoreGiveUpTask?.cancel()
+        restoreGiveUpTask = nil
+
+        if firstLayoutAt == nil, viewport != nil { firstLayoutAt = .now }
+        currentViewport = viewport
+        enforceWebViewBackdrop()
+        hideLoadingCover()
+        onViewportChange?(viewport)
+        resumeViewportWaiters()
+    }
+
+    /// Якщо відновлення не прийшло за відведений час, не тримаємо читалку
+    /// закритою вічно: ціль могла стати недосяжною (книгу замінили, розділ
+    /// зник). Тоді повертаємось до звичайної поведінки.
+    private func scheduleRestoreGiveUp() {
+        guard restoreGiveUpTask == nil else { return }
+        restoreGiveUpTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.restoreGiveUp)
+            guard !Task.isCancelled, let self, pendingRestore != nil else { return }
+            finishRestoring(with: navigator.viewport)
+            // Місце читання при цьому не пишемо: це не відновлена позиція, і
+            // збережене з минулого разу краще за початок розділу.
+            if let location = navigator.currentLocation { onLocationChange?(location) }
         }
     }
 
@@ -759,6 +907,10 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
     func navigator(_ navigator: Navigator, locationDidChange locator: Locator) {
         enforceWebViewBackdrop()
         lastReportedProgression = locator.locations.totalProgression
+        // Поки навігатор їде до відновленої позиції, його позиція проміжна
+        // (початок розділу). Ні показувати її, ні зберігати не можна: вона
+        // затерла б справжнє місце читання.
+        guard pendingRestore == nil else { return }
         // Зберігаємо на кожну зміну позиції: застосунок можуть закрити будь-
         // коли, а чекати на спеціальний момент — втратити останню сторінку.
         // Виняток — перемотування смугою: там позиція міняється десятки
@@ -858,6 +1010,20 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
         _ navigator: any ViewportObservingNavigator,
         viewportDidChange viewport: NavigatorViewport?
     ) {
+        // Проміжну подію (початок розділу до відновлення) утримуємо: читалку не
+        // відкриваємо, гортання не пускаємо. Відпускаємо, коли в viewport
+        // з'явилась відновлена позиція.
+        if let target = pendingRestore {
+            guard let viewport else { return }
+            if hasReached(target, in: viewport) {
+                finishRestoring(with: viewport)
+            } else {
+                scheduleRestoreGiveUp()
+                enforceWebViewBackdrop()
+            }
+            return
+        }
+
         if currentViewport == nil, viewport != nil, firstLayoutAt == nil {
             firstLayoutAt = .now
         }
