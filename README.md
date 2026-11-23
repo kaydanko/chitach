@@ -46,7 +46,7 @@
 
 ## Встановлення на macOS
 
-Завантажте `Chytach-0.4.0.dmg` зі сторінки
+Завантажте `Chytach-0.2.0.dmg` зі сторінки
 [Releases](https://github.com/kaydanko/chitach/releases), відкрийте образ і
 перетягніть `Chytach` у теку «Програми» — вона поруч у тому ж вікні.
 
