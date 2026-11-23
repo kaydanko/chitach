@@ -8,7 +8,11 @@ import UniformTypeIdentifiers
 /// Поки без бази даних — вона зʼявиться у Фазі 2. Завдання цього сервісу
 /// мінімальне: забрати файл, на який користувач має тимчасовий доступ, і
 /// покласти його туди, звідки застосунок зможе читати його будь-коли.
-enum BookImportService {
+///
+/// `nonisolated`: це суцільна робота з файлами, і перетягування кличе її
+/// з фонового потоку. Під типовою ізоляцією модуля вона формально
+/// належала головному акторові й при цьому виконувалася поза ним.
+nonisolated enum BookImportService {
     enum ImportError: LocalizedError {
         case accessDenied(URL)
         case unsupportedFormat(String)
@@ -137,14 +141,16 @@ enum BookImportService {
     }
 
     private static func importFileRepresentation(from provider: NSItemProvider) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
+        // Типи — заздалегідь: сам `NSItemProvider` у фоновий зворотний
+        // виклик не тягнемо, він не `Sendable`.
+        let registeredTypes = provider.registeredTypeIdentifiers
+        return try await withCheckedThrowingContinuation { continuation in
             provider.loadFileRepresentation(
                 forTypeIdentifier: UTType.item.identifier
             ) { url, error in
                 guard let url else {
                     continuation.resume(
-                        throwing: error
-                            ?? ImportError.unreadableDrop(provider.registeredTypeIdentifiers)
+                        throwing: error ?? ImportError.unreadableDrop(registeredTypes)
                     )
                     return
                 }

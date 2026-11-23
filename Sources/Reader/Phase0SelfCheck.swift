@@ -1,5 +1,6 @@
 import ReadiumNavigator
-import ReadiumShared
+// Чому `@preconcurrency` — див. ReaderHostViewController.swift.
+@preconcurrency import ReadiumShared
 import UIKit
 
 /// Самодіагностика Фази 0.
@@ -117,7 +118,7 @@ enum Phase0SelfCheck {
         do {
             let toc = try await navigator.publication.tableOfContents().get()
             if let target = toc.dropFirst(2).first ?? toc.last {
-                let jumped = await navigator.go(to: target)
+                let jumped = await navigator.go(to: target, options: NavigatorGoOptions())
                 _ = await wait { navigator.currentLocation?.href.string != start.href.string }
                 log(
                     jumped,

@@ -55,8 +55,7 @@ final class ReadiumPublicationService {
     func open(
         url: AbsoluteURL,
         knownMediaType: MediaType? = nil,
-        allowUserInteraction: Bool = false,
-        sender: Any? = nil
+        allowUserInteraction: Bool = false
     ) async throws -> OpenedPublication {
         let httpClient = DefaultHTTPClient()
         let assetRetriever = AssetRetriever(httpClient: httpClient)
@@ -68,19 +67,24 @@ final class ReadiumPublicationService {
             )
         )
 
-        let asset = try await {
-            if let knownMediaType {
-                await assetRetriever.retrieve(url: url, mediaType: knownMediaType)
-            } else {
-                await assetRetriever.retrieve(url: url)
-            }
-        }().get()
+        // Без замикання-обгортки: захоплений у нього `assetRetriever`
+        // компілятор уже не міг простежити, і виклик рахувався як передача
+        // спільного значення в інший контекст.
+        let asset: Asset
+        if let knownMediaType {
+            asset = try await assetRetriever.retrieve(url: url, mediaType: knownMediaType).get()
+        } else {
+            asset = try await assetRetriever.retrieve(url: url).get()
+        }
+        // Формат беремо до того, як віддати `asset` відкривачеві: після
+        // передачі значення в інший контекст звертатися до нього не можна.
+        let format = asset.format
 
         let publication = try await publicationOpener
-            .open(asset: asset, allowUserInteraction: allowUserInteraction, sender: sender)
+            .open(asset: asset, allowUserInteraction: allowUserInteraction)
             .get()
 
-        return OpenedPublication(publication: publication, format: asset.format)
+        return OpenedPublication(publication: publication, format: format)
     }
 
     /// Відкриває вже підготовлений каталог EPUB (розпакований).
@@ -109,19 +113,19 @@ final class ReadiumPublicationService {
             .retrieve(container: container, hints: FormatHints(mediaType: .epub))
             .get()
 
+        let format = asset.format
         let publication = try await publicationOpener
             .open(asset: asset, allowUserInteraction: false)
             .get()
 
-        return OpenedPublication(publication: publication, format: asset.format)
+        return OpenedPublication(publication: publication, format: format)
     }
 
     /// Зручна обгортка для локальних файлів.
     func open(
         fileURL: URL,
         knownMediaType: MediaType? = nil,
-        allowUserInteraction: Bool = false,
-        sender: Any? = nil
+        allowUserInteraction: Bool = false
     ) async throws -> OpenedPublication {
         // Формати, яких Readium не знає, спершу конвертуємо в EPUB.
         if TextToEPUBConverter.handles(fileURL.pathExtension) {
@@ -140,8 +144,7 @@ final class ReadiumPublicationService {
         return try await open(
             url: url,
             knownMediaType: knownMediaType,
-            allowUserInteraction: allowUserInteraction,
-            sender: sender
+            allowUserInteraction: allowUserInteraction
         )
     }
 }

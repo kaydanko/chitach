@@ -1,5 +1,16 @@
 import ReadiumNavigator
-import ReadiumShared
+// `@preconcurrency` — свідомо, після перевірки коду Readium 3.11.0.
+//
+// `Publication` не позначена `Sendable`, бо модуль писали до Swift 6, тож
+// кожен виклик `positions()`, `locate(progression:)` чи `tableOfContents()`
+// з головного актора компілятор вважав передачею спільного значення в інший
+// контекст. Насправді одночасний доступ тут безпечний: спільний стан
+// публікації — маніфест, який після відкриття лише читається, а позиції
+// рахує `EPUBPositionsService`, і він `actor`. Обгортати кожен виклик заради
+// формальності означало б лише сховати ту саму думку глибше.
+//
+// Коли Readium сам позначить типи `Sendable`, атрибут можна прибрати.
+@preconcurrency import ReadiumShared
 import UIKit
 import WebKit
 
@@ -679,7 +690,11 @@ final class ReaderHostViewController: UIViewController {
         await waitForViewportChange()
 
         if let saved {
-            _ = await navigator.go(to: saved)
+            // З явними `options` — щоб викликався власний метод навігатора на
+            // головному акторі. Без них спрацьовує розширення протоколу
+            // `Navigator` із Readium: воно не ізольоване й кличе головний
+            // актор через ізольовану відповідність з чужого контексту.
+            _ = await navigator.go(to: saved, options: NavigatorGoOptions())
         }
     }
 

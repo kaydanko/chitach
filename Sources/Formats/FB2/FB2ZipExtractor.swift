@@ -38,7 +38,7 @@ enum FB2ZipExtractor {
     /// Найбільші справжні FB2 з ілюстраціями — десятки мегабайтів.
     static let maxUncompressedSize = 256 * 1024 * 1024
 
-    static func handles(_ url: URL) -> Bool {
+    nonisolated static func handles(_ url: URL) -> Bool {
         url.lastPathComponent.lowercased().hasSuffix(".fb2.zip")
     }
 
