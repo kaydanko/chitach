@@ -24,7 +24,10 @@ enum FB2ToEPUBConverter {
             return cached
         }
 
-        var data = try Data(contentsOf: fileURL)
+        // Відображення файлу, а не копія: на час розбору книга не займає
+        // власної памʼяті процесу, і система може скинути сторінки, щойно
+        // вони прочитані.
+        var data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
         if FB2ZipExtractor.handles(fileURL) {
             data = try FB2ZipExtractor.extractBook(from: data)
         }

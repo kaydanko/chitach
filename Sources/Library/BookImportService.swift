@@ -176,22 +176,24 @@ enum BookImportService {
     /// метаданих файлу миттєво, тож на бібліотеці в сотні книг рахувати
     /// доведеться хіба кілька відбитків замість усіх.
     private static func existingBook(matching source: URL) -> URL? {
-        guard let size = fileSize(of: source), let sourceDigest = digest(of: source) else {
-            return nil
-        }
+        guard let size = fileSize(of: source) else { return nil }
 
         let contents = (try? FileManager.default.contentsOfDirectory(
             at: booksDirectory,
             includingPropertiesForKeys: [.fileSizeKey],
             options: [.skipsHiddenFiles]
         )) ?? []
+        let sameSize = contents.filter { fileSize(of: $0) == size }
 
-        return contents.first { candidate in
-            fileSize(of: candidate) == size && digest(of: candidate) == sourceDigest
-        }
+        // Відбиток вхідного файлу — лише коли є з чим звіряти. Раніше він
+        // рахувався завжди, ще до пошуку кандидатів: нова книга на сотні
+        // мегабайтів читалася цілком на головному потоці, і інтерфейс
+        // завмирав саме в мить додавання, хоч порівнювати було ні з чим.
+        guard !sameSize.isEmpty, let sourceDigest = digest(of: source) else { return nil }
+        return sameSize.first { digest(of: $0) == sourceDigest }
     }
 
-    static func fileSize(of url: URL) -> Int? {
+    nonisolated static func fileSize(of url: URL) -> Int? {
         let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
         // Бандл (`.rtfd`) розміру не має — такі не звіряємо, тільки
         // копіюємо. Трапляються вони рідко, а обходити теку заради
@@ -202,13 +204,26 @@ enum BookImportService {
 
     /// Відбиток вмісту, порціями: книга може важити сотні мегабайтів, і
     /// читати її в пам`ять цілком заради порівняння не треба.
-    static func digest(of url: URL) -> String? {
+    ///
+    /// `nonisolated`: бібліотека рахує відбитки у фоні, а не на головному
+    /// потоці.
+    nonisolated static func digest(of url: URL) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
 
         var hasher = SHA256()
-        while let chunk = try? handle.read(upToCount: 1 << 20), !chunk.isEmpty {
-            hasher.update(data: chunk)
+        while true {
+            // Пул на кожну порцію: `FileHandle` віддає дані через
+            // autorelease, і без пулу всі порції жили б до кінця циклу —
+            // читання «порціями» тримало б у памʼяті весь файл.
+            let isDone: Bool = autoreleasepool {
+                guard let chunk = try? handle.read(upToCount: 1 << 20), !chunk.isEmpty else {
+                    return true
+                }
+                hasher.update(data: chunk)
+                return false
+            }
+            if isDone { break }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }

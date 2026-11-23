@@ -58,7 +58,8 @@ enum TextToEPUBConverter {
     /// взагалі бувають у тексті; переможе та кодова таблиця, що дасть
     /// найменше сміття.
     static func readText(at url: URL) throws -> (String, String.Encoding) {
-        let data = try Data(contentsOf: url)
+        // Відображення, а не копія — як у FB2: текст лише читається.
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
 
         if let bom = encodingFromBOM(data), let text = String(data: data, encoding: bom) {
             return (text, bom)

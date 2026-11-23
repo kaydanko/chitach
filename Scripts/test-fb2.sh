@@ -16,7 +16,10 @@ sed 's/encoding="UTF-8"/encoding="windows-1251"/' "$FIXTURE" | iconv -f UTF-8 -t
 cp "$FIXTURE" "$OUT/book.fb2"
 (cd "$OUT" && zip -q -9 deflate.fb2.zip book.fb2 && zip -q -0 stored.fb2.zip book.fb2)
 
+# AppLanguage — бо повідомлення й назви розділів конвертер бере обраною
+# мовою інтерфейсу.
 xcrun swiftc -O \
+  "$ROOT/Sources/App/AppLanguage.swift" \
   "$ROOT/Sources/Formats/EPUBBuilder.swift" \
   "$ROOT/Sources/Formats/FB2/FB2Parser.swift" \
   "$ROOT/Sources/Formats/FB2/FB2ZipExtractor.swift" \

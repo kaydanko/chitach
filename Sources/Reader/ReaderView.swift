@@ -80,15 +80,27 @@ struct ReaderView: View {
         }
         .background(Color(BookAppearance.voidColor))
         .onAppear {
+            // Замикання, які віддаємо хостові, не сміють захоплювати сам
+            // `ReaderView`: він тримає `host` сильним посиланням, і вийшло б
+            // кільце хост → замикання → вид → хост. Так і було: кожна закрита
+            // книга лишалася в памʼяті цілком — навігатор, усі WKWebView і
+            // розібрана публікація (лічильник показав три живі хости після
+            // трьох відкриттів-закриттів). Тому замикання бачать лише
+            // привʼязки до стану і сховище — жодне з них хоста не тримає.
+            let locatorBinding = $locator
+            let viewportBinding = $viewport
+            let readyBinding = $isDocumentReady
+            let store = store
+
             host.onLocationChange = { newLocator in
-                locator = newLocator
+                locatorBinding.wrappedValue = newLocator
             }
             host.onViewportChange = { newViewport in
-                viewport = newViewport
+                viewportBinding.wrappedValue = newViewport
 
                 // Непорожній viewport означає, що сторінка вже відмальована.
-                guard newViewport != nil, !isDocumentReady else { return }
-                withAnimation(.easeOut(duration: 0.18)) { isDocumentReady = true }
+                guard newViewport != nil, !readyBinding.wrappedValue else { return }
+                withAnimation(.easeOut(duration: 0.18)) { readyBinding.wrappedValue = true }
             }
             // ⌘ + коліщатко миші.
             host.onFontSizeStep = { steps in store.stepFontSize(by: steps) }

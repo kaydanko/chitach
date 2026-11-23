@@ -78,7 +78,7 @@ enum RTFToEPUBConverter {
                 )
             }
 
-            let extracted = RTFPictureExtractor.extract(from: try Data(contentsOf: url))
+            let extracted = RTFPictureExtractor.extract(from: try Data(contentsOf: url, options: .mappedIfSafe))
             return Document(
                 text: try NSAttributedString(
                     data: extracted.data,

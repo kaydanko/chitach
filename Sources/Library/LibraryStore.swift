@@ -127,7 +127,7 @@ enum LibraryStore {
     /// Лишаємо копію з найбільшим поступом читання — саме її людина й
     /// читала. За рівного поступу перемагає коротша назва: `Епістемій`
     /// проти `Епістемій 4` — це оригінал проти випадкової копії.
-    static func redundantCopies() -> [LibraryBook] {
+    static func redundantCopies() async -> [LibraryBook] {
         // Спершу за розміром, і лише всередині збігів — за відбитком.
         //
         // Рахувати відбиток кожної книги означало б прочитати всю бібліотеку
@@ -139,12 +139,24 @@ enum LibraryStore {
             bySize[size, default: []].append(book)
         }
 
-        var groups: [String: [LibraryBook]] = [:]
-        for sameSize in bySize.values where sameSize.count > 1 {
-            for book in sameSize {
-                guard let digest = BookImportService.digest(of: book.url) else { continue }
-                groups[digest, default: []].append(book)
+        let candidates = bySize.values.filter { $0.count > 1 }.flatMap { $0 }
+        guard !candidates.isEmpty else { return [] }
+
+        // Читання файлів — у фоні. Це цілі книги, інколи сотні мегабайтів,
+        // і на головному потоці бібліотека завмирала б при кожній появі.
+        let urls = candidates.map(\.url)
+        let digests = await Task.detached(priority: .utility) {
+            var result: [URL: String] = [:]
+            for url in urls {
+                if let digest = BookImportService.digest(of: url) { result[url] = digest }
             }
+            return result
+        }.value
+
+        var groups: [String: [LibraryBook]] = [:]
+        for book in candidates {
+            guard let digest = digests[book.url] else { continue }
+            groups[digest, default: []].append(book)
         }
 
         return groups.values
@@ -162,9 +174,9 @@ enum LibraryStore {
 
     /// Прибирає зайві копії. Повертає скільки книг вилучено.
     @discardableResult
-    static func removeDuplicates() -> Int {
+    static func removeDuplicates() async -> Int {
         var removed = 0
-        for copy in redundantCopies() where (try? remove(copy)) != nil {
+        for copy in await redundantCopies() where (try? remove(copy)) != nil {
             removed += 1
         }
         return removed

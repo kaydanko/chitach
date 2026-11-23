@@ -33,7 +33,7 @@ struct LibraryView: View {
         }
         .background(Color(BookAppearance.voidColor))
         .task(id: store.library.count) {
-            redundant = LibraryStore.redundantCopies()
+            redundant = await LibraryStore.redundantCopies()
         }
         .confirmationDialog(
             "Прибрати \(redundant.count) \(Self.copiesWord(redundant.count))?",
@@ -41,9 +41,11 @@ struct LibraryView: View {
             titleVisibility: .visible
         ) {
             Button("Прибрати", role: .destructive) {
-                LibraryStore.removeDuplicates()
-                store.refreshLibrary()
-                redundant = LibraryStore.redundantCopies()
+                Task {
+                    await LibraryStore.removeDuplicates()
+                    store.refreshLibrary()
+                    redundant = await LibraryStore.redundantCopies()
+                }
             }
             Button("Скасувати", role: .cancel) {}
         } message: {

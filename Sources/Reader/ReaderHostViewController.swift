@@ -48,8 +48,9 @@ final class ReaderHostViewController: UIViewController {
     private var isTwoColumns: Bool
     private var isRelayouting = false
 
-    /// Очікувачі найближчої зміни viewport.
-    private var viewportWaiters: [CheckedContinuation<Void, Never>] = []
+    /// Очікувачі найближчої зміни viewport. За ключем — щоб таймаут
+    /// будив лише свого очікувача.
+    private var viewportWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
 
     /// Книга, яку читаємо. Потрібна, щоб зберігати позицію під правильним
     /// ключем.
@@ -423,15 +424,26 @@ final class ReaderHostViewController: UIViewController {
 
     private static func applyBackdrop(to view: UIView) {
         if let webView = view as? WKWebView {
-            webView.isOpaque = false
+            // Пишемо лише різницю — як і в `makeTransparent`. Цей обхід
+            // спрацьовує на кожну зміну сторінки, тобто й наприкінці
+            // анімації гортання. Запис навіть того самого кольору змушує
+            // WebKit перемальовувати шар, а посеред анімації це коштує
+            // кадрів і вже колись збивало прокрутку.
+            if webView.isOpaque { webView.isOpaque = false }
             // Тло самого webview видно, доки документ не відмальовано, —
             // саме воно й блимало білим при переході на іншу сторінку.
-            webView.backgroundColor = BookAppearance.loadingBackdropColor
-            webView.scrollView.backgroundColor = BookAppearance.loadingBackdropColor
+            if webView.backgroundColor != BookAppearance.loadingBackdropColor {
+                webView.backgroundColor = BookAppearance.loadingBackdropColor
+            }
+            if webView.scrollView.backgroundColor != BookAppearance.loadingBackdropColor {
+                webView.scrollView.backgroundColor = BookAppearance.loadingBackdropColor
+            }
             // А це — площа під уже відмальованим документом. Тут потрібен
             // колір паперу: з нього складається смуга над текстом, якщо
             // документ не починається від самого верху.
-            webView.underPageBackgroundColor = BookAppearance.paperColor
+            if webView.underPageBackgroundColor != BookAppearance.paperColor {
+                webView.underPageBackgroundColor = BookAppearance.paperColor
+            }
         }
         for subview in view.subviews {
             applyBackdrop(to: subview)
@@ -677,18 +689,23 @@ final class ReaderHostViewController: UIViewController {
     /// причини не повідомить про зміну, ми все одно повернемо користувача на
     /// місце, нехай і менш точно, замість зависнути назавжди.
     private func waitForViewportChange(timeout: Duration = .seconds(2)) async {
+        let id = UUID()
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            viewportWaiters.append(continuation)
+            viewportWaiters[id] = continuation
 
+            // Таймаут будить лише свого очікувача. Раніше він будив усіх:
+            // за швидкої зміни кегля (⌘+ кілька разів) перебудови йдуть
+            // внахлест, і таймаут першої відпускав другу ще до нової
+            // верстки — повернення на місце йшло по старій пагінації.
             Task { [weak self] in
                 try? await Task.sleep(for: timeout)
-                self?.resumeViewportWaiters()
+                self?.viewportWaiters.removeValue(forKey: id)?.resume()
             }
         }
     }
 
     private func resumeViewportWaiters() {
-        let waiters = viewportWaiters
+        let waiters = viewportWaiters.values
         viewportWaiters.removeAll()
         for waiter in waiters {
             waiter.resume()

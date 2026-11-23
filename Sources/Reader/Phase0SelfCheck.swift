@@ -294,7 +294,7 @@ enum Phase0SelfCheck {
         // Прибираємо лише свої копії. Загальне прибирання зачепило б і
         // решту бібліотеки: у теці перевірок лежать книги з однаковим
         // вмістом під різними назвами, і одна з них щоразу зникала.
-        let ourCopies = LibraryStore.redundantCopies().filter { copies.contains($0.url) }
+        let ourCopies = await LibraryStore.redundantCopies().filter { copies.contains($0.url) }
         for copy in ourCopies { try? LibraryStore.remove(copy) }
         let removed = ourCopies.count
         let left = copies.filter { FileManager.default.fileExists(atPath: $0.path) }
