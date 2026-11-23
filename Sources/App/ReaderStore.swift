@@ -30,6 +30,9 @@ final class ReaderStore {
     /// Чи показаний перелік книг поверх читання.
     var isShowingLibrary = false
 
+    /// Чи показаний екран «Підтримати проєкт».
+    var isShowingDonation = false
+
     /// Додані книги. Тримаємо в сховищі, а не перечитуємо теку в кожному
     /// відображенні: перелік потрібен і початковому екрану, і аркушу поверх
     /// читання, і оновлюється лише тоді, коли книг справді побільшало чи
@@ -143,7 +146,7 @@ final class ReaderStore {
         // `--selftest` прибрати, коли запрацює тест-ранер.
         isShowingSettings = CommandLine.arguments.contains("--settings")
         isShowingLibrary = CommandLine.arguments.contains("--library")
-        ColorPanelPlacement.seedIfNeeded()
+        isShowingDonation = CommandLine.arguments.contains("--donate")
 
         // Запуск із файлом: `--open <шлях або імʼя у теці Books>`.
         // Потрібно для перевірки без UI; користувачу стає в пригоді, коли

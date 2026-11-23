@@ -59,6 +59,10 @@ final class SceneDelegate: NSObject, UIWindowSceneDelegate {
         // Ховаємо системний титульний рядок: роль шапки виконує власна
         // панель. Інакше у вікні маємо два рядки поспіль, а в розгорнутому
         // стані системні кнопки лягають поверх наших.
+        // Початкове положення панелі кольорів — тут, бо лише тут є сцена,
+        // у якій її відкриють.
+        ColorPanelPlacement.seedIfNeeded(in: windowScene)
+
         if let titlebar = windowScene.titlebar {
             titlebar.titleVisibility = .hidden
             titlebar.toolbar = nil

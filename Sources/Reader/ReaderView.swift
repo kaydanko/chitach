@@ -165,6 +165,9 @@ struct ReaderView: View {
 
             Spacer(minLength: 12)
 
+            toolbarButton("heart", label: "Підтримати проєкт") {
+                store.isShowingDonation = true
+            }
             toolbarButton("textformat.size", label: "Оформлення") {
                 store.isShowingSettings = true
             }

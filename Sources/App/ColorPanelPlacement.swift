@@ -1,11 +1,16 @@
 import UIKit
 
-/// Ставить системну панель кольорів по центру екрана.
+#if targetEnvironment(macCatalyst)
+
+/// Ставить системну панель кольорів по центру вікна.
 ///
-/// На Mac Catalyst `ColorPicker` відкриває панель кольорів AppKit. Коли в неї
-/// немає збереженого положення, AppKit кладе її в лівий нижній кут — і там її
-/// легко не помітити, а решта інтерфейсу на той час не реагує. Виглядає як
-/// зависання застосунку.
+/// Лише для Mac: на iOS `ColorPicker` показує власний аркуш, і панелі AppKit
+/// там немає взагалі. Доти цей код виконувався на всіх пристроях і писав
+/// налаштування, яке ніде не читалося.
+///
+/// Коли в панелі немає збереженого положення, AppKit кладе її в лівий нижній
+/// кут — там її легко не помітити, а решта інтерфейсу на той час не реагує.
+/// Виглядає як зависання застосунку.
 ///
 /// Дістатися до `NSColorPanel` із Catalyst напряму не можна, але AppKit
 /// зберігає положення вікон у `UserDefaults` під ключем
@@ -21,10 +26,14 @@ enum ColorPanelPlacement {
 
     private static let panelSize = CGSize(width: 232, height: 420)
 
-    static func seedIfNeeded() {
+    /// - Parameter windowScene: сцена, у якій відкриють панель. Саме вона, а
+    ///   не `UIScreen.main`: глобальний «головний екран» нічого не знає про
+    ///   те, де насправді живе вікно. На складаному телефоні вікно займає то
+    ///   зовнішній екран, то внутрішній, і панель полетіла б повз.
+    static func seedIfNeeded(in windowScene: UIWindowScene) {
         guard UserDefaults.standard.string(forKey: key) == nil else { return }
 
-        let screen = UIScreen.main.bounds
+        let screen = windowScene.screen.bounds
         let width = screen.width * catalystScale
         let height = screen.height * catalystScale
 
@@ -37,3 +46,5 @@ enum ColorPanelPlacement {
         UserDefaults.standard.set(frame, forKey: key)
     }
 }
+
+#endif

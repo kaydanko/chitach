@@ -43,8 +43,14 @@ struct ContentView: View {
                         .background(Color(BookAppearance.voidColor).ignoresSafeArea())
                         .transition(.opacity)
                 }
+
+                if store.isShowingDonation {
+                    DonationView(onClose: { store.isShowingDonation = false })
+                        .transition(.opacity)
+                }
             }
             .animation(.easeOut(duration: 0.16), value: store.isShowingLibrary)
+            .animation(.easeOut(duration: 0.16), value: store.isShowingDonation)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(BookAppearance.voidColor).ignoresSafeArea())
             // Перетягування приймається двома каналами навмисно.
@@ -252,34 +258,71 @@ private struct OpenBookPlaceholder: View {
     private let buttonSize: CGFloat = 26
     private let noteSize: CGFloat = 23
 
+    /// Ширина, під яку ці розміри добиралися.
+    ///
+    /// Сталі пункти добре працюють, доки вікно широке. На зовнішньому екрані
+    /// складаного телефона ширини всього 466 pt — і написи на кнопках там
+    /// обрізалися до «Відк…». Тому розміри масштабуються від наявної ширини,
+    /// а не від пристрою: вікно змінює розмір і на Mac, і коли телефон
+    /// розкладають.
+    private let referenceWidth: CGFloat = 760
+
     var body: some View {
-        VStack(spacing: 34) {
+        GeometryReader { geometry in
+            let scale = min(1, geometry.size.width / referenceWidth)
+            layout(scale: scale)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottom) { supportLink(scale: scale) }
+        }
+    }
+
+    /// Тихе посилання на внесок у самому низу: помітне, але не змагається
+    /// з головною дією екрана.
+    private func supportLink(scale: CGFloat) -> some View {
+        Button {
+            store.isShowingDonation = true
+        } label: {
+            Label("Підтримати проєкт", systemImage: "heart")
+                .font(.system(size: max(15, 19 * scale), weight: .medium))
+                .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 20 * scale)
+    }
+
+    private func layout(scale: CGFloat) -> some View {
+        VStack(spacing: 34 * scale) {
             Image(systemName: "books.vertical")
-                .font(.system(size: iconSize, weight: .light))
+                .font(.system(size: iconSize * scale, weight: .light))
                 .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
 
             Text("Chytach")
-                .font(.system(size: titleSize, weight: .semibold))
+                .font(.system(size: titleSize * scale, weight: .semibold))
                 .foregroundStyle(Color(BookAppearance.onVoidColor))
 
-            VStack(spacing: 12) {
+            VStack(spacing: 12 * scale) {
                 Text("Перетягніть книгу сюди")
                 Text("або натисніть кнопку нижче, або ⌘O")
             }
-            .font(.system(size: hintSize))
+            .font(.system(size: hintSize * scale))
+            .minimumScaleFactor(0.7)
+            .lineLimit(1)
             .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
 
-            HStack(spacing: 18) {
+            HStack(spacing: 18 * scale) {
                 // Коли книги вже додані, головна дія — повернутися до них,
                 // а не шукати новий файл. На порожній бібліотеці навпаки:
                 // повертатися нема до чого, зате є зразок, щоб застосунок
                 // можна було оцінити без власної книжки.
                 if store.library.isEmpty {
                     Button("Відкрити книгу…") { store.isImporting = true }
-                        .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize))
+                        .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize * scale))
 
                     Button("Відкрити зразок") { store.openSample() }
-                        .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
+                        .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize * scale))
                 } else {
                     Button("Бібліотека (\(store.library.count))") {
                         store.refreshLibrary()
@@ -291,15 +334,16 @@ private struct OpenBookPlaceholder: View {
                         .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 8 * scale)
 
             Text("Підтримуються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.")
-                .font(.system(size: noteSize))
+                .font(.system(size: noteSize * scale))
+                .minimumScaleFactor(0.7)
                 .multilineTextAlignment(.center)
-                .lineSpacing(5)
+                .lineSpacing(5 * scale)
                 .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
-                .padding(.top, 18)
+                .padding(.top, 18 * scale)
         }
-        .padding(56)
+        .padding(56 * scale)
     }
 }
