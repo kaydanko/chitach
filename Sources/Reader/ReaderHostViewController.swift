@@ -150,6 +150,7 @@ final class ReaderHostViewController: UIViewController {
     /// проході верстки колись уже лишав сторінку зсунутою посеред анімації
     /// гортання. Переходи зі смуги та змісту неанімовані, тож тут безпечно.
     private func paintBackdropWhileLoading(for duration: Duration = .milliseconds(400)) {
+        showLoadingCover()
         enforceWebViewBackdrop()
 
         Task { [weak self] in
@@ -165,6 +166,53 @@ final class ReaderHostViewController: UIViewController {
                 guard let self else { return }
                 enforceWebViewBackdrop()
             }
+        }
+    }
+
+    /// Непрозорий шар, яким накриваємо читалку, поки вантажиться сторінка.
+    ///
+    /// Чому не досить пофарбувати webview. Біле малює сам процес WebKit
+    /// усередині свого шару — вище за тло `UIView`, — і ззовні туди не
+    /// дістатися: перевірено `backgroundColor`, `underPageBackgroundColor`
+    /// і проксі вигляду. У симуляторі це спрацьовувало, на Mac проблиск
+    /// лишався, бо там інший шлях складання шарів.
+    ///
+    /// Власний шар від нутрощів WebKit не залежить зовсім: він просто лежить
+    /// зверху, доки сторінка не готова.
+    private lazy var loadingCover: UIView = {
+        let cover = UIView()
+        cover.backgroundColor = BookAppearance.loadingBackdropColor
+        cover.isUserInteractionEnabled = false
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        cover.alpha = 0
+        return cover
+    }()
+
+    /// Чи накрито читалку просто зараз. Для діагностики: застряглий шар
+    /// означав би чорний екран замість книги, і помітити це треба машинно.
+    var isLoadingCoverVisible: Bool {
+        loadingCover.superview != nil && loadingCover.alpha > 0.01
+    }
+
+    private func showLoadingCover() {
+        loadingCover.frame = view.bounds
+        view.addSubview(loadingCover)
+        view.bringSubviewToFront(loadingCover)
+        loadingCover.layer.removeAllAnimations()
+        loadingCover.alpha = 1
+    }
+
+    /// Прибирає шар, коли сторінку вже розкладено.
+    ///
+    /// Не миттєво, а коротким згасанням: воно саме й перекриває ту мить,
+    /// коли WebKit домальовує сторінку. Різкий зріз лишав би шанс побачити
+    /// недомальоване.
+    private func hideLoadingCover() {
+        guard loadingCover.alpha > 0 else { return }
+        UIView.animate(withDuration: 0.18) {
+            self.loadingCover.alpha = 0
+        } completion: { finished in
+            if finished { self.loadingCover.removeFromSuperview() }
         }
     }
 
@@ -783,6 +831,7 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
         }
         currentViewport = viewport
         enforceWebViewBackdrop()
+        hideLoadingCover()
         onViewportChange?(viewport)
         resumeViewportWaiters()
     }

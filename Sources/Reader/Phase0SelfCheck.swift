@@ -318,6 +318,10 @@ enum Phase0SelfCheck {
         }
         _ = await jump.value
 
+        // Шар, яким накриваємо читалку на час завантаження, мусить зникати.
+        // Застряглий — це чорний екран замість книги.
+        log(!host.isLoadingCoverVisible, "шар завантаження прибрано після переходу")
+
         let whites = samples.filter { $0 == "#FFFFFF" }
         log(
             whites.isEmpty && !samples.isEmpty,
