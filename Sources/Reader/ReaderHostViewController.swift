@@ -90,6 +90,13 @@ final class ReaderHostViewController: UIViewController {
         directionalNavigation.bind(to: navigator)
         installScrollWheelZoom()
 
+        // Найяскравіший спалах — не при гортанні, а при відкритті книги:
+        // webview створюється білим, а підкладку ми ставили аж за першим
+        // повідомленням про сторінку. Вікно між цими двома моментами й
+        // випалювало очі, тому фарбуємо з самого початку і триваліше:
+        // перше завантаження довше за перехід між сторінками.
+        paintBackdropWhileLoading(for: .seconds(3))
+
         Task { [weak self] in
             guard let self else { return }
             totalPositions = (try? await navigator.publication.positions().get().count) ?? 0
@@ -126,8 +133,38 @@ final class ReaderHostViewController: UIViewController {
         guard let locator = await navigator.publication.locate(progression: clamped) else {
             return false
         }
+        paintBackdropWhileLoading()
         return await turnPage {
             await navigator.go(to: locator, options: NavigatorGoOptions(animated: false))
+        }
+    }
+
+    /// Фарбує webview, доки Readium збирає нову сторінку.
+    ///
+    /// Підкладка ставиться за подією про зміну сторінки, але webview для
+    /// нового розділу створюється раніше — і до першої такої події його
+    /// видно білим. Тому під час переходу коротко повторюємо, щоб застати
+    /// новостворений вид.
+    ///
+    /// Саме під час переходу, а не постійно: обхід ієрархії на кожному
+    /// проході верстки колись уже лишав сторінку зсунутою посеред анімації
+    /// гортання. Переходи зі смуги та змісту неанімовані, тож тут безпечно.
+    private func paintBackdropWhileLoading(for duration: Duration = .milliseconds(400)) {
+        enforceWebViewBackdrop()
+
+        Task { [weak self] in
+            let deadline = ContinuousClock.now + duration
+            while ContinuousClock.now < deadline {
+                // Пʼятдесят мілісекунд, а не кожен кадр: колір новий webview
+                // має вже від народження (проксі вигляду в AppDelegate), тож
+                // тут лишилося дотягнути решту — прозорість і підкладку під
+                // документом. Обхід ієрархії на кожному кадрі протягом трьох
+                // секунд був би сотнею зайвих проходів заради того, що не
+                // змінюється так часто.
+                try? await Task.sleep(for: .milliseconds(50))
+                guard let self else { return }
+                enforceWebViewBackdrop()
+            }
         }
     }
 
@@ -251,7 +288,8 @@ final class ReaderHostViewController: UIViewController {
 
     @discardableResult
     func go(to link: ReadiumShared.Link) async -> Bool {
-        await turnPage {
+        paintBackdropWhileLoading()
+        return await turnPage {
             await navigator.go(to: link, options: NavigatorGoOptions(animated: false))
         }
     }
@@ -271,7 +309,54 @@ final class ReaderHostViewController: UIViewController {
         isTurningPage = true
         defer { isTurningPage = false }
 
-        return await move()
+        await waitUntilLaidOut()
+
+        // Readium відмовляє гортати, поки не доклав першу сторінку. Найчастіше
+        // це перші секунди після запуску, коли застосунок відновлює місце з
+        // минулого разу, — і саме тоді людина тисне гортати. Відмова там
+        // означала «нічого не сталося», і дотик зникав безслідно.
+        //
+        // Тому коротко пробуємо ще. Якщо позиція тим часом змінилася,
+        // вважаємо, що перехід усе ж відбувся: повторювати його означало б
+        // перегорнути двічі.
+        let startedAt = navigator.currentLocation?.locations.totalProgression
+        // Вікно повторів рахуємо від миті, коли сторінку вперше розклали, а
+        // не від натискання. Так повтори живуть лише в ті перші секунди,
+        // коли навігатор ще не готовий, і не додають затримки потім — бо
+        // пізніша відмова означає вже справжню межу книги.
+        let grace = (firstLayoutAt ?? .now) + Self.layoutGrace
+
+        while true {
+            if await move() { return true }
+            // Позиція все ж змінилася — перехід відбувся попри відповідь;
+            // повторювати означало б перегорнути двічі.
+            if navigator.currentLocation?.locations.totalProgression != startedAt {
+                return true
+            }
+            guard ContinuousClock.now < grace else { return false }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    /// Скільки після першої верстки ще варто перепитувати навігатор.
+    ///
+    /// Виміряно: після відновлення збереженої позиції він відмовляє гортати
+    /// близько двох секунд. Беремо із запасом.
+    private static let layoutGrace: Duration = .seconds(3)
+
+    /// Чекає, доки навігатор розкладе першу сторінку.
+    ///
+    /// Ознака — перший `viewportDidChange`: доти в книзі ще немає ні сторінок,
+    /// ні меж, від яких рахувати наступну. Обмежено за часом, щоб гортання не
+    /// зависло, якщо повідомлення не прийде.
+    /// Коли навігатор уперше повідомив, що сторінку розкладено.
+    private var firstLayoutAt: ContinuousClock.Instant?
+
+    private func waitUntilLaidOut(timeout: Duration = .seconds(3)) async {
+        let deadline = ContinuousClock.now + timeout
+        while currentViewport == nil, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(16))
+        }
     }
 
     /// Перефарбовує підкладку webview після завантаження сторінки.
@@ -291,8 +376,13 @@ final class ReaderHostViewController: UIViewController {
     private static func applyBackdrop(to view: UIView) {
         if let webView = view as? WKWebView {
             webView.isOpaque = false
-            webView.backgroundColor = BookAppearance.paperColor
-            webView.scrollView.backgroundColor = BookAppearance.paperColor
+            // Тло самого webview видно, доки документ не відмальовано, —
+            // саме воно й блимало білим при переході на іншу сторінку.
+            webView.backgroundColor = BookAppearance.loadingBackdropColor
+            webView.scrollView.backgroundColor = BookAppearance.loadingBackdropColor
+            // А це — площа під уже відмальованим документом. Тут потрібен
+            // колір паперу: з нього складається смуга над текстом, якщо
+            // документ не починається від самого верху.
             webView.underPageBackgroundColor = BookAppearance.paperColor
         }
         for subview in view.subviews {
@@ -396,6 +486,33 @@ final class ReaderHostViewController: UIViewController {
             found += makeTransparent(subview)
         }
         return found
+    }
+
+    /// Кольори тла всіх `WKWebView` просто зараз.
+    ///
+    /// Потрібне, щоб довести, що під час завантаження сторінки не видно
+    /// білого: сам спалах триває частки секунди й у знімок екрана не
+    /// потрапляє, а колір виду зчитати можна будь-коли.
+    var webViewBackdrops: [String] {
+        Self.collectBackdrops(from: navigator.view)
+    }
+
+    private static func collectBackdrops(from view: UIView) -> [String] {
+        var result: [String] = []
+        if let webView = view as? WKWebView {
+            result.append(describe(webView.backgroundColor))
+        }
+        for subview in view.subviews {
+            result += collectBackdrops(from: subview)
+        }
+        return result
+    }
+
+    private static func describe(_ color: UIColor?) -> String {
+        guard let color else { return "немає" }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
     }
 
     /// Скільки `WKWebView` зараз у ієрархії навігатора. Для діагностики.
@@ -661,6 +778,9 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
         _ navigator: any ViewportObservingNavigator,
         viewportDidChange viewport: NavigatorViewport?
     ) {
+        if currentViewport == nil, viewport != nil, firstLayoutAt == nil {
+            firstLayoutAt = .now
+        }
         currentViewport = viewport
         enforceWebViewBackdrop()
         onViewportChange?(viewport)

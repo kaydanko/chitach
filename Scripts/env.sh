@@ -1,18 +1,32 @@
 #!/bin/zsh
 # Спільне оточення для всіх скриптів збірки.
-#
-# На цій машині `xcode-select` вказує на CommandLineTools, де немає ні
-# xcodebuild, ні iOS SDK. Перемикання потребує sudo, тому кожен виклик
-# xcodebuild іде через DEVELOPER_DIR. Не прибирати без перевірки
-# `xcode-select -p`.
 
 set -euo pipefail
 
-export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode-beta.app/Contents/Developer}"
+# Беремо те, що обрано в системі, і лише якщо там CommandLineTools (без
+# xcodebuild і SDK) — шукаємо Xcode самі.
+#
+# Раніше тут був зашитий шлях до Xcode-beta: `xcode-select` вказував на
+# CommandLineTools, а змінити це без пароля неможливо. Зашитий шлях пережив
+# себе — щойно Xcode замінили, збірка впала б на неіснуючій теці.
+if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+  SELECTED="$(xcode-select -p 2>/dev/null || true)"
 
-if [[ ! -d "$DEVELOPER_DIR" ]]; then
-  echo "error: DEVELOPER_DIR не існує: $DEVELOPER_DIR" >&2
-  echo "       Встановіть Xcode або задайте DEVELOPER_DIR вручну." >&2
+  if [[ -x "$SELECTED/usr/bin/xcodebuild" ]]; then
+    export DEVELOPER_DIR="$SELECTED"
+  else
+    for CANDIDATE in /Applications/Xcode.app /Applications/Xcode-beta.app; do
+      if [[ -x "$CANDIDATE/Contents/Developer/usr/bin/xcodebuild" ]]; then
+        export DEVELOPER_DIR="$CANDIDATE/Contents/Developer"
+        break
+      fi
+    done
+  fi
+fi
+
+if [[ -z "${DEVELOPER_DIR:-}" || ! -d "$DEVELOPER_DIR" ]]; then
+  echo "error: не знайдено Xcode." >&2
+  echo "       Встановіть його або задайте DEVELOPER_DIR вручну." >&2
   exit 1
 fi
 
@@ -22,5 +36,31 @@ export ROOT
 SCHEME="Chytach"
 export SCHEME
 
-# Симулятор за замовчуванням. Перевизначається змінною DESTINATION.
-export DESTINATION="${DESTINATION:-platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5}"
+# Симулятор за замовчуванням: перший доступний iPhone, за його
+# ідентифікатором.
+#
+# Не за іменем і не за версією системи: і те, і те вже ламалося. Ім'я без
+# версії xcodebuild не розпізнає, коли той самий пристрій існує для кількох
+# runtime, а зашита версія живе рівно до наступного оновлення Xcode.
+if [[ -z "${DESTINATION:-}" ]]; then
+  SIMULATOR_ID="$(
+    xcrun simctl list devices available -j 2>/dev/null | /usr/bin/python3 -I -c "
+import json, sys
+devices = json.load(sys.stdin)['devices']
+for runtime in sorted(devices, reverse=True):
+    if 'iOS' not in runtime:
+        continue
+    for device in devices[runtime]:
+        if device['name'].startswith('iPhone'):
+            print(device['udid'])
+            raise SystemExit
+" || true
+  )"
+
+  if [[ -z "$SIMULATOR_ID" ]]; then
+    echo "error: не знайдено жодного симулятора iPhone." >&2
+    exit 1
+  fi
+
+  export DESTINATION="platform=iOS Simulator,id=$SIMULATOR_ID"
+fi

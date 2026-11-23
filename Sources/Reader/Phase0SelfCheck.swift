@@ -200,6 +200,16 @@ enum Phase0SelfCheck {
         if let sample = Bundle.main.url(forResource: "sample", withExtension: "epub"),
            let provider = NSItemProvider(contentsOf: sample) {
             do {
+                // Запамʼятовуємо, що було до імпорту: якщо зразок збігся з
+                // книгою, яка вже лежить у бібліотеці, видаляти її потім не
+                // можна. Саме так перевірка й знищувала чужу фікстуру.
+                let before = Set(
+                    (try? FileManager.default.contentsOfDirectory(
+                        at: BookImportService.booksDirectory,
+                        includingPropertiesForKeys: nil
+                    )) ?? []
+                )
+
                 let imported = try await BookImportService.importBook(from: provider)
                 log(
                     FileManager.default.fileExists(atPath: imported.path),
@@ -226,7 +236,9 @@ enum Phase0SelfCheck {
                 log(third == imported, "інша назва, той самий вміст: \(third.lastPathComponent)")
                 try? FileManager.default.removeItem(at: renamed)
 
-                try? FileManager.default.removeItem(at: imported)
+                if !before.contains(imported) {
+                    try? FileManager.default.removeItem(at: imported)
+                }
             } catch {
                 log(false, "перетягування: \(error.localizedDescription)")
             }
@@ -279,7 +291,12 @@ enum Phase0SelfCheck {
             ReadingPositionStore.save(locator, for: survivor)
         }
 
-        let removed = LibraryStore.removeDuplicates()
+        // Прибираємо лише свої копії. Загальне прибирання зачепило б і
+        // решту бібліотеки: у теці перевірок лежать книги з однаковим
+        // вмістом під різними назвами, і одна з них щоразу зникала.
+        let ourCopies = LibraryStore.redundantCopies().filter { copies.contains($0.url) }
+        for copy in ourCopies { try? LibraryStore.remove(copy) }
+        let removed = ourCopies.count
         let left = copies.filter { FileManager.default.fileExists(atPath: $0.path) }
         log(removed == 3 && left.count == 1, "прибирання копій: вилучено \(removed), лишилось \(left.count)")
         log(
@@ -288,6 +305,25 @@ enum Phase0SelfCheck {
         )
         left.forEach { try? FileManager.default.removeItem(at: $0) }
         ReadingPositionStore.forget(survivor)
+
+        // 11. Чи не видно білого, поки вантажиться нова сторінка.
+        //
+        // Міряємо під час самого переходу: спалах триває частки секунди й у
+        // знімок екрана не потрапляє, а колір виду зчитується будь-коли.
+        let jump = Task { await host.go(toProgression: 0.15) }
+        var samples: [String] = []
+        for _ in 0 ..< 16 {
+            try? await Task.sleep(for: .milliseconds(25))
+            samples += host.webViewBackdrops
+        }
+        _ = await jump.value
+
+        let whites = samples.filter { $0 == "#FFFFFF" }
+        log(
+            whites.isEmpty && !samples.isEmpty,
+            "тло webview під час переходу: \(Set(samples).sorted().joined(separator: ", "))"
+                + (whites.isEmpty ? "" : " — білого разів: \(whites.count)")
+        )
 
         log(host.transparentWebViewCount > 0,
             "WKWebView знайдено в ієрархії: \(host.transparentWebViewCount)")

@@ -24,15 +24,23 @@ struct NavigatorIntegrationTests {
     }
 
     /// Піднімає навігатор у вікні й чекає, доки з'явиться перша позиція.
-    private func makeReader() async throws -> (host: ReaderHostViewController, window: UIWindow) {
+    private func makeReader(
+        restoringTo restored: Locator? = nil
+    ) async throws -> (host: ReaderHostViewController, window: UIWindow) {
         let opened = try await ReadiumPublicationService()
             .open(fileURL: fixture("childrens-literature"))
 
+        let bookURL = try fixture("childrens-literature")
         let navigator = try EPUBNavigatorViewController(
             publication: opened.publication,
-            initialLocation: nil
+            initialLocation: restored,
+            config: BookAppearance.navigatorConfiguration(twoColumns: false)
         )
-        let host = ReaderHostViewController(navigator: navigator)
+        let host = ReaderHostViewController(
+            navigator: navigator,
+            bookURL: bookURL,
+            startsTwoColumns: false
+        )
 
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         window.rootViewController = host
@@ -57,6 +65,38 @@ struct NavigatorIntegrationTests {
         }
         Issue.record("таймаут \(timeout): \(what)")
         throw CancellationError()
+    }
+
+    /// Відтворює ваду, помічену в застосунку: відкриваєш книгу, вона
+    /// відновлює місце з минулого разу — і перше гортання не працює.
+    ///
+    /// Причина, яку перевіряємо: навігатор ще їде до збереженої позиції, а
+    /// гортання вже пораховане від початку розділу. Перехід відбувається й
+    /// тут-таки скасовується тим, що навігатор доїжджає куди збирався.
+    @Test("перше гортання після відновлення позиції не губиться")
+    func pageTurnSurvivesRestore() async throws {
+        let publication = try await ReadiumPublicationService()
+            .open(fileURL: fixture("childrens-literature")).publication
+        let restored = try #require(await publication.locate(progression: 0.8))
+
+        let (host, window) = try await makeReader(restoringTo: restored)
+        defer { window.isHidden = true }
+
+        let before = host.navigator.currentLocation?.locations.totalProgression ?? 0
+
+        // Відома вада, причину ще не знайдено: навігатор відмовляє гортати,
+        // доки не доїде до відновленої позиції, і три спроби це обійти —
+        // очікування верстки, повтори, вікно від першої верстки — не
+        // зарадили. `withKnownIssue` лишає тест червоним у звіті, але не
+        // валить набір; коли ваду полагодять, він сам почне падати як
+        // «несподівано пройшов».
+        await withKnownIssue("перше гортання після відновлення позиції губиться") {
+            #expect(await host.goForward(), "гортання має бути прийняте")
+
+            try await waitUntil("сторінка перегорнулася з першої спроби") {
+                (host.navigator.currentLocation?.locations.totalProgression ?? 0) > before
+            }
+        }
     }
 
     @Test("goForward просуває позицію, goBackward повертає")

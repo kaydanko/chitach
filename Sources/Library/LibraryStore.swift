@@ -128,11 +128,23 @@ enum LibraryStore {
     /// читала. За рівного поступу перемагає коротша назва: `Епістемій`
     /// проти `Епістемій 4` — це оригінал проти випадкової копії.
     static func redundantCopies() -> [LibraryBook] {
-        var groups: [String: [LibraryBook]] = [:]
-
+        // Спершу за розміром, і лише всередині збігів — за відбитком.
+        //
+        // Рахувати відбиток кожної книги означало б прочитати всю бібліотеку
+        // цілком щоразу, коли її відкривають. Розмір береться з метаданих
+        // миттєво, а різний розмір уже доводить, що книги різні.
+        var bySize: [Int: [LibraryBook]] = [:]
         for book in books() {
-            guard let digest = BookImportService.digest(of: book.url) else { continue }
-            groups[digest, default: []].append(book)
+            guard let size = BookImportService.fileSize(of: book.url) else { continue }
+            bySize[size, default: []].append(book)
+        }
+
+        var groups: [String: [LibraryBook]] = [:]
+        for sameSize in bySize.values where sameSize.count > 1 {
+            for book in sameSize {
+                guard let digest = BookImportService.digest(of: book.url) else { continue }
+                groups[digest, default: []].append(book)
+            }
         }
 
         return groups.values

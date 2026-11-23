@@ -52,7 +52,7 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: Chytach
-        CFBundleShortVersionString: "0.3.0"
+        CFBundleShortVersionString: "0.4.0"
         CFBundleVersion: "1"
         UILaunchScreen:
           UIColorName: LaunchBackground
@@ -68,6 +68,13 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # Знімає стелю в 60 Гц на iPhone із ProMotion.
+        #
+        # Без цього ключа система обмежує застосунок 60 кадрами, хоч екран
+        # уміє 120: анімація гортання виглядала б удвічі менш плавною, ніж
+        # може. На економність це не впливає — екран сам опускає частоту,
+        # коли нічого не рухається, а ключ лише прибирає стелю згори.
+        CADisableMinimumFrameDurationOnPhone: true
         # Потрібне для Фази 2 (імпорт через Files / Open In).
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
@@ -124,6 +131,11 @@ targets:
       - path: Tests
         excludes:
           - "Fixtures/**"
+          # Самодостатні перевірки — окремі програми з власним `@main`,
+          # які збираються напряму через Scripts/test-rtf.sh і test-fb2.sh.
+          # Тестовій цілі вони чужі: вона не має ні їхнього `main`, ні
+          # доступу до внутрішніх типів застосунку в тому ж вигляді.
+          - "Standalone/**"
       # Тестові книги копіюються в бандл тестів, а не компілюються.
       - path: Tests/Fixtures
         buildPhase: resources

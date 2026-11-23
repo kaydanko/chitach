@@ -1,4 +1,5 @@
 import UIKit
+import WebKit
 
 
 /// Прибирає білий спалах на запуску.
@@ -17,6 +18,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UIWindow.appearance().backgroundColor = BookAppearance.voidColor
+
+        // Те саме для webview, і з тієї ж причини: проксі вигляду діє на
+        // види ще до того, як вони зʼявляться. Readium створює webview сам,
+        // і дотягнутися до щойно створеного ми не встигаємо — він устигає
+        // блимнути білим. Заданий тут колір він має від народження.
+        WKWebView.appearance().backgroundColor = BookAppearance.loadingBackdropColor
+
         return true
     }
 

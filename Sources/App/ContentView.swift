@@ -293,7 +293,7 @@ private struct OpenBookPlaceholder: View {
             }
             .padding(.top, 8)
 
-            Text("Зараз підтримуються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.")
+            Text("Підтримуються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.")
                 .font(.system(size: noteSize))
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
