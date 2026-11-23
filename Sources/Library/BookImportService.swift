@@ -22,17 +22,17 @@ enum BookImportService {
         var errorDescription: String? {
             switch self {
             case let .accessDenied(url):
-                "Немає доступу до файлу \(url.lastPathComponent)."
+                String(localized: "Немає доступу до файлу \(url.lastPathComponent).", bundle: AppLanguage.bundle)
             case let .unreadableDrop(types):
-                """
+                String(localized: """
                 Не вдалося прочитати перетягнутий файл.
-                Система віддала: \(types.isEmpty ? "нічого" : types.joined(separator: ", "))
-                """
+                Система віддала: \(types.isEmpty ? String(localized: "нічого", bundle: AppLanguage.bundle) : types.joined(separator: ", "))
+                """, bundle: AppLanguage.bundle)
             case let .unsupportedFormat(ext):
-                """
+                String(localized: """
                 Формат «\(ext)» поки не підтримується.
                 Зараз відкриваються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.
-                """
+                """, bundle: AppLanguage.bundle)
             }
         }
     }
@@ -79,7 +79,7 @@ enum BookImportService {
         // Довільний ZIP не приймаємо: за розширенням не видно, що всередині.
         // `.fb2.zip` — усталена назва, під якою бібліотеки віддають FB2.
         guard canOpen(source) else {
-            throw ImportError.unsupportedFormat(ext.isEmpty ? "без розширення" : ext)
+            throw ImportError.unsupportedFormat(ext.isEmpty ? String(localized: "без розширення", bundle: AppLanguage.bundle) : ext)
         }
 
         let needsScope = source.startAccessingSecurityScopedResource()

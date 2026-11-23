@@ -1,0 +1,1057 @@
+{
+  "sourceLanguage": "uk",
+  "strings": {
+    "%@ скопійовано": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ copied"
+          }
+        }
+      }
+    },
+    "%lld ₴": {
+      "shouldTranslate": false
+    },
+    "%lld%%": {
+      "shouldTranslate": false
+    },
+    "Chytach": {
+      "shouldTranslate": false
+    },
+    "Chytach робить одна людина у вільний час. Без реклами, без підписок і без збору даних. Якщо застосунок став вам у пригоді, можна пригостити розробника кавою. Внески йдуть на час для нових функцій.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chytach is made by one person in their spare time. No ads, no subscriptions, no data collection. If the app has been useful to you, you can buy the developer a coffee. Donations go toward time for new features."
+          }
+        }
+      }
+    },
+    "Інша": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        }
+      }
+    },
+    "Інша сума в гривнях": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other amount in hryvnias"
+          }
+        }
+      }
+    },
+    "Або переказ на картку": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or transfer to card"
+          }
+        }
+      }
+    },
+    "Архів зашифровано паролем.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive is password-protected."
+          }
+        }
+      }
+    },
+    "Архів пошкоджено.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive is damaged."
+          }
+        }
+      }
+    },
+    "Архів стиснуто непідтримуваним способом (%lld).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive uses an unsupported compression method (%lld)."
+          }
+        }
+      }
+    },
+    "Без назви": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untitled"
+          }
+        }
+      }
+    },
+    "Бібліотека": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library"
+          }
+        }
+      }
+    },
+    "Бібліотека (%lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library (%lld)"
+          }
+        }
+      }
+    },
+    "Більший текст": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Larger Text"
+          }
+        }
+      }
+    },
+    "Більший текст (альт.)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Larger Text (alt.)"
+          }
+        }
+      }
+    },
+    "В архіві немає файлу .fb2.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive contains no .fb2 file."
+          }
+        }
+      }
+    },
+    "Вилучити": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "Вилучити «%@»?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove “%@”?"
+          }
+        }
+      }
+    },
+    "Вилучити з бібліотеки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from Library"
+          }
+        }
+      }
+    },
+    "Власні кольори": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom Colors"
+          }
+        }
+      }
+    },
+    "Відкрити зразок": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Sample"
+          }
+        }
+      }
+    },
+    "Відкрити книгу…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Book…"
+          }
+        }
+      }
+    },
+    "Відкрити файл": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open File"
+          }
+        }
+      }
+    },
+    "Відкриється банка monobank — у застосунку банку або в браузері. Платити можна карткою будь-якого банку; сума в гривнях.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This opens a monobank jar — in the bank’s app or in your browser. You can pay with a card from any bank; the amount is in Ukrainian hryvnias."
+          }
+        }
+      }
+    },
+    "Відпустіть, щоб відкрити": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop to open"
+          }
+        }
+      }
+    },
+    "Готово": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "Готові теми": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themes"
+          }
+        }
+      }
+    },
+    "Додати книгу…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Book…"
+          }
+        }
+      }
+    },
+    "Задонатити через monobank": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Donate via monobank"
+          }
+        }
+      }
+    },
+    "Закрити": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
+    "Закрити бібліотеку": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Library"
+          }
+        }
+      }
+    },
+    "Закрити зміст": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Contents"
+          }
+        }
+      }
+    },
+    "Закрити книгу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Book"
+          }
+        }
+      }
+    },
+    "Зміст": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contents"
+          }
+        }
+      }
+    },
+    "Зразок": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        }
+      }
+    },
+    "Зразок не знайдено в бандлі.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sample book is missing from the app bundle."
+          }
+        }
+      }
+    },
+    "Зразок тексту — п'ять, об'єм, здоров'я.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sample text — the quick brown fox jumps over the lazy dog."
+          }
+        }
+      }
+    },
+    "Зрозуміло": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "Картка й рахунок гривневі (UAH). Якщо ви платите карткою в іншій валюті, ваш банк сконвертує суму за своїм курсом і може взяти комісію — варто глянути, скільки спишеться.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The card and account are in Ukrainian hryvnias (UAH). If you pay with a card in another currency, your bank will convert the amount at its own rate and may charge a fee — worth checking how much will be debited."
+          }
+        }
+      }
+    },
+    "Книга в архіві завелика.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The book in the archive is too large."
+          }
+        }
+      }
+    },
+    "Колір тексту": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text Color"
+          }
+        }
+      }
+    },
+    "Кремова": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cream"
+          }
+        }
+      }
+    },
+    "Менший текст": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smaller Text"
+          }
+        }
+      }
+    },
+    "На початок книги": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Beginning"
+          }
+        }
+      }
+    },
+    "Наступна сторінка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Page"
+          }
+        }
+      }
+    },
+    "Не вдалося визначити кодування файлу «%@». Спробуйте зберегти його в UTF-8.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t detect the encoding of “%@”. Try saving it as UTF-8."
+          }
+        }
+      }
+    },
+    "Не вдалося відкрити": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t Open"
+          }
+        }
+      }
+    },
+    "Не вдалося відкрити книгу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t Open the Book"
+          }
+        }
+      }
+    },
+    "Не вдалося прочитати перетягнутий файл.\nСистема віддала: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t read the dropped file.\nThe system provided: %@"
+          }
+        }
+      }
+    },
+    "Не вдалося прочитати файл «%@». Можливо, він пошкоджений.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t read “%@”. It may be damaged."
+          }
+        }
+      }
+    },
+    "Не вдалося розібрати FB2: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t parse the FB2 file: %@"
+          }
+        }
+      }
+    },
+    "Не зараз": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        }
+      }
+    },
+    "Немає доступу до файлу %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No access to the file %@."
+          }
+        }
+      }
+    },
+    "Номер картки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Card number"
+          }
+        }
+      }
+    },
+    "Нічна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Night"
+          }
+        }
+      }
+    },
+    "Обрати інший файл": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Another File"
+          }
+        }
+      }
+    },
+    "Отримувач": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recipient"
+          }
+        }
+      }
+    },
+    "Оформлення": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        }
+      }
+    },
+    "Оформлення…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance…"
+          }
+        }
+      }
+    },
+    "Переказ на картку": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer to card"
+          }
+        }
+      }
+    },
+    "Перетягніть книгу сюди": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag a book here"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Перетягніть книгу у вікно або натисніть «Додати книгу…»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag a book into the window or tap “Add Book…”"
+          }
+        }
+      }
+    },
+    "Повернути початкові": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Defaults"
+          }
+        }
+      }
+    },
+    "Повернутися до читання": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to reading"
+          }
+        }
+      }
+    },
+    "Подобається читати тут?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enjoying reading here?"
+          }
+        }
+      }
+    },
+    "Помилка читання": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading Error"
+          }
+        }
+      }
+    },
+    "Попередня сторінка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous Page"
+          }
+        }
+      }
+    },
+    "Прибрати": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "Прибрати %lld %@?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %lld %@?"
+          }
+        }
+      }
+    },
+    "Прибрати дублікати (%lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Duplicates (%lld)"
+          }
+        }
+      }
+    },
+    "Примітки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes"
+          }
+        }
+      }
+    },
+    "Підтримати проєкт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support the project"
+          }
+        }
+      }
+    },
+    "Підтримуються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports EPUB, FB2, TXT, Markdown, RTF, PDF and CBZ."
+          }
+        }
+      }
+    },
+    "Пісочна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sand"
+          }
+        }
+      }
+    },
+    "Розмір тексту": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text Size"
+          }
+        }
+      }
+    },
+    "Сепія": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sepia"
+          }
+        }
+      }
+    },
+    "Скасувати": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Скопійовано": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        }
+      }
+    },
+    "Скопійовано!": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied!"
+          }
+        }
+      }
+    },
+    "Скопіювати": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
+    "Скопіювати: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy: %@"
+          }
+        }
+      }
+    },
+    "Сторінка %lld з %lld · %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %lld of %lld · %lld%%"
+          }
+        }
+      }
+    },
+    "Сіра": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grey"
+          }
+        }
+      }
+    },
+    "Та сама книга лежить у бібліотеці кілька разів. Лишиться одна копія — та, у якій ви просунулися найдалі. Решту буде видалено без можливості відновити.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The same book is in your library more than once. One copy will stay — the one you’ve read furthest. The rest will be deleted permanently."
+          }
+        }
+      }
+    },
+    "Так буває у звичайному тексті й у книгах, де розділи не позначені.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This happens with plain text and with books whose chapters aren’t marked."
+          }
+        }
+      }
+    },
+    "Також: ⌘ і коліщатко миші, або ⌘+ і ⌘−.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also: ⌘ and the scroll wheel, or ⌘+ and ⌘−."
+          }
+        }
+      }
+    },
+    "Тло сторінки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page Background"
+          }
+        }
+      }
+    },
+    "Тут поки порожньо": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing here yet"
+          }
+        }
+      }
+    },
+    "У кінець книги": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to End"
+          }
+        }
+      }
+    },
+    "У файлі FB2 немає тексту.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The FB2 file contains no text."
+          }
+        }
+      }
+    },
+    "У цій книзі немає змісту": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book has no table of contents"
+          }
+        }
+      }
+    },
+    "Файл буде видалено із застосунку разом із місцем читання. Скасувати це не можна.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file and your reading position will be deleted from the app. This can’t be undone."
+          }
+        }
+      }
+    },
+    "Файл не схожий на архів ZIP.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file doesn’t look like a ZIP archive."
+          }
+        }
+      }
+    },
+    "Формат «%@» поки не підтримується.\nЗараз відкриваються EPUB, FB2, TXT, Markdown, RTF, PDF і CBZ.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The “%@” format isn’t supported yet.\nSupported formats: EPUB, FB2, TXT, Markdown, RTF, PDF and CBZ."
+          }
+        }
+      }
+    },
+    "Це повністю добровільно. Читалка лишиться такою ж і без внеску.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is entirely optional. The reader stays exactly the same without a donation."
+          }
+        }
+      }
+    },
+    "Частина %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part %lld"
+          }
+        }
+      }
+    },
+    "Читаємо": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading"
+          }
+        }
+      }
+    },
+    "Чорна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Black"
+          }
+        }
+      }
+    },
+    "або натисніть кнопку нижче, або ⌘O": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or click a button below, or press ⌘O"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "без розширення": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no extension"
+          }
+        }
+      }
+    },
+    "невідома помилка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown error"
+          }
+        }
+      }
+    },
+    "нічого": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nothing"
+          }
+        }
+      }
+    },
+    "прочитано %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% read"
+          }
+        }
+      }
+    },
+    "тут": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "here"
+          }
+        }
+      }
+    },
+    "→ сторінка %lld з %lld · %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ page %lld of %lld · %lld%%"
+          }
+        }
+      }
+    },
+    "↩ до тексту": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ back to text"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

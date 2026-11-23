@@ -18,7 +18,7 @@ enum TextToEPUBConverter {
         var errorDescription: String? {
             switch self {
             case let .unreadableEncoding(name):
-                "Не вдалося визначити кодування файлу «\(name)». Спробуйте зберегти його в UTF-8."
+                String(localized: "Не вдалося визначити кодування файлу «\(name)». Спробуйте зберегти його в UTF-8.", bundle: AppLanguage.bundle)
             }
         }
     }

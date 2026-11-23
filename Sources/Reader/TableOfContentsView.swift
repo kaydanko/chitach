@@ -25,7 +25,7 @@ extension TableOfContentsEntry {
         links.flatMap { link -> [Self] in
             let title = link.title?.trimmingCharacters(in: .whitespacesAndNewlines)
             let entry = Self(
-                title: (title?.isEmpty == false) ? title! : "Без назви",
+                title: (title?.isEmpty == false) ? title! : String(localized: "Без назви", bundle: AppLanguage.bundle),
                 link: link,
                 depth: depth
             )

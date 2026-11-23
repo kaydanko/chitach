@@ -32,8 +32,8 @@ final class FB2Parser: NSObject {
 
         var errorDescription: String? {
             switch self {
-            case let .malformed(reason): "Не вдалося розібрати FB2: \(reason)"
-            case .empty: "У файлі FB2 немає тексту."
+            case let .malformed(reason): String(localized: "Не вдалося розібрати FB2: \(reason)", bundle: AppLanguage.bundle)
+            case .empty: String(localized: "У файлі FB2 немає тексту.", bundle: AppLanguage.bundle)
             }
         }
     }
@@ -46,7 +46,7 @@ final class FB2Parser: NSObject {
 
         guard xml.parse() else {
             throw ParseError.malformed(
-                xml.parserError?.localizedDescription ?? "невідома помилка"
+                xml.parserError?.localizedDescription ?? String(localized: "невідома помилка", bundle: AppLanguage.bundle)
             )
         }
         return try parser.makeDocument()
@@ -540,7 +540,7 @@ extension FB2Parser {
     func makeDocument() throws -> Document {
         let notes = notesHTML.trimmingCharacters(in: .whitespacesAndNewlines)
         if !notes.isEmpty {
-            chapters.append(.init(title: "Примітки", bodyXHTML: notes))
+            chapters.append(.init(title: String(localized: "Примітки", bundle: AppLanguage.bundle), bodyXHTML: notes))
             for id in noteAnchors { anchorChapter[id] = chapters.count - 1 }
         }
 
@@ -579,7 +579,7 @@ extension FB2Parser {
             body = Self.replacingMarkers(in: body, prefix: Self.backMarkerPrefix) {
                 guard let id = target(of: $0), let reference = noteBackReferences[id] else { return "" }
                 return "<p class=\"backref\" style=\"\(Self.flushLeft)\">"
-                    + "<a href=\"\(href(to: reference))\">↩ до тексту</a></p>"
+                    + "<a href=\"\(href(to: reference))\">\(String(localized: "↩ до тексту", bundle: AppLanguage.bundle))</a></p>"
             }
             return EPUBBuilder.Chapter(title: chapter.title, bodyXHTML: body)
         }

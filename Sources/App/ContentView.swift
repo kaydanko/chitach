@@ -220,6 +220,10 @@ private struct VoidButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: fontSize, weight: .medium))
+            // Напис кнопки — завжди один рядок. Перенесений на два, він
+            // розпирав капсулу вгору й виглядав як дві різні кнопки.
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(Color(
                 kind == .filled ? BookAppearance.voidColor : BookAppearance.onVoidColor
             ))
@@ -255,7 +259,9 @@ private struct OpenBookPlaceholder: View {
     private let iconSize: CGFloat = 112
     private let titleSize: CGFloat = 64
     private let hintSize: CGFloat = 30
-    private let buttonSize: CGFloat = 26
+    private let buttonSize: CGFloat = 21
+    /// Нижче цього кнопки на телефоні стають дрібнішими за підказку над ними.
+    private let minimumButtonSize: CGFloat = 15
     private let noteSize: CGFloat = 23
 
     /// Ширина, під яку ці розміри добиралися.
@@ -273,6 +279,11 @@ private struct OpenBookPlaceholder: View {
             layout(scale: scale)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) { supportLink(scale: scale) }
+                .overlay(alignment: .topTrailing) {
+                    LanguageSwitch()
+                        .padding(.top, 14)
+                        .padding(.trailing, 16)
+                }
         }
     }
 
@@ -293,6 +304,34 @@ private struct OpenBookPlaceholder: View {
         .padding(.bottom, 20 * scale)
     }
 
+    /// Коли книги вже додані, головна дія — повернутися до них, а не шукати
+    /// новий файл. На порожній бібліотеці навпаки: повертатися нема до чого,
+    /// зате є зразок, щоб застосунок можна було оцінити без власної книжки.
+    ///
+    /// Обидві пари масштабуються однаково. Раніше друга мала сталі 26 pt і
+    /// на телефоні не влазила в рядок.
+    @ViewBuilder
+    private func actionButtons(scale: CGFloat) -> some View {
+        let size = max(minimumButtonSize, buttonSize * scale)
+
+        if store.library.isEmpty {
+            Button("Відкрити книгу…") { store.isImporting = true }
+                .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: size))
+
+            Button("Відкрити зразок") { store.openSample() }
+                .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: size))
+        } else {
+            Button("Бібліотека (\(store.library.count))") {
+                store.refreshLibrary()
+                store.isShowingLibrary = true
+            }
+            .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: size))
+
+            Button("Відкрити книгу…") { store.isImporting = true }
+                .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: size))
+        }
+    }
+
     private func layout(scale: CGFloat) -> some View {
         VStack(spacing: 34 * scale) {
             Image(systemName: "books.vertical")
@@ -303,6 +342,9 @@ private struct OpenBookPlaceholder: View {
                 .font(.system(size: titleSize * scale, weight: .semibold))
                 .foregroundStyle(Color(BookAppearance.onVoidColor))
 
+            // Лише на Mac: на телефоні книгу у вікно не перетягнеш і ⌘O не
+            // натиснеш, тож підказка обіцяла б те, чого там немає.
+            #if targetEnvironment(macCatalyst)
             VStack(spacing: 12 * scale) {
                 Text("Перетягніть книгу сюди")
                 Text("або натисніть кнопку нижче, або ⌘O")
@@ -311,28 +353,13 @@ private struct OpenBookPlaceholder: View {
             .minimumScaleFactor(0.7)
             .lineLimit(1)
             .foregroundStyle(Color(BookAppearance.onVoidMutedColor))
+            #endif
 
-            HStack(spacing: 18 * scale) {
-                // Коли книги вже додані, головна дія — повернутися до них,
-                // а не шукати новий файл. На порожній бібліотеці навпаки:
-                // повертатися нема до чого, зате є зразок, щоб застосунок
-                // можна було оцінити без власної книжки.
-                if store.library.isEmpty {
-                    Button("Відкрити книгу…") { store.isImporting = true }
-                        .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize * scale))
-
-                    Button("Відкрити зразок") { store.openSample() }
-                        .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize * scale))
-                } else {
-                    Button("Бібліотека (\(store.library.count))") {
-                        store.refreshLibrary()
-                        store.isShowingLibrary = true
-                    }
-                    .buttonStyle(VoidButtonStyle(kind: .filled, fontSize: buttonSize))
-
-                    Button("Відкрити книгу…") { store.isImporting = true }
-                        .buttonStyle(VoidButtonStyle(kind: .outlined, fontSize: buttonSize))
-                }
+            // Якщо пара кнопок не влазить у рядок навіть зменшеною, вони
+            // стають одна під одну — але напис усередині не переноситься.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 18 * scale) { actionButtons(scale: scale) }
+                VStack(spacing: 14 * scale) { actionButtons(scale: scale) }
             }
             .padding(.top, 8 * scale)
 
@@ -345,5 +372,48 @@ private struct OpenBookPlaceholder: View {
                 .padding(.top, 18 * scale)
         }
         .padding(56 * scale)
+    }
+}
+
+/// Перемикач мови інтерфейсу на заставці.
+///
+/// Тут, а не в налаштуваннях книги: мову обирають один раз і зазвичай
+/// ще до того, як відкрили першу книгу. Обидві мови видно одразу — так
+/// той, хто не розуміє поточної, знайде свою за підписом.
+private struct LanguageSwitch: View {
+    @Environment(ReaderStore.self) private var store
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(AppLanguage.allCases) { language in
+                let isSelected = store.language == language
+
+                Button {
+                    store.language = language
+                } label: {
+                    Text(verbatim: language.shortName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .kerning(0.6)
+                        .foregroundStyle(Color(
+                            isSelected ? BookAppearance.voidColor : BookAppearance.onVoidMutedColor
+                        ))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background {
+                            if isSelected {
+                                Capsule().fill(Color(BookAppearance.onVoidColor))
+                            }
+                        }
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim: language.fullName))
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(
+            Capsule().strokeBorder(Color(BookAppearance.onVoidColor).opacity(0.25), lineWidth: 1)
+        )
     }
 }

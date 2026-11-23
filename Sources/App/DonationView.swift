@@ -242,14 +242,14 @@ struct DonationView: View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel(
                 DonationDetails.jarURL == nil
-                    ? "Переказ на картку"
-                    : "Або переказ на картку"
+                    ? String(localized: "Переказ на картку", bundle: AppLanguage.bundle)
+                    : String(localized: "Або переказ на картку", bundle: AppLanguage.bundle)
             )
             .padding(.bottom, 10)
 
             VStack(spacing: 0) {
                 detailRow(
-                    title: "Номер картки",
+                    title: String(localized: "Номер картки", bundle: AppLanguage.bundle),
                     value: DonationDetails.grouped(DonationDetails.cardNumber),
                     copyValue: DonationDetails.cardNumber,
                     field: .card,
@@ -257,7 +257,7 @@ struct DonationView: View {
                 )
                 Divider().overlay(hairline)
                 detailRow(
-                    title: "Отримувач",
+                    title: String(localized: "Отримувач", bundle: AppLanguage.bundle),
                     value: DonationDetails.recipient,
                     copyValue: DonationDetails.recipient,
                     field: .recipient
@@ -268,7 +268,8 @@ struct DonationView: View {
                     value: DonationDetails.grouped(DonationDetails.iban),
                     copyValue: DonationDetails.iban,
                     field: .iban,
-                    monospaced: true
+                    monospaced: true,
+                    wraps: true
                 )
             }
             .background(surface, in: .rect(cornerRadius: 14))
@@ -294,7 +295,7 @@ struct DonationView: View {
 
     private var dismissButton: some View {
         Button(action: onClose) {
-            Text(store.bookURL == nil ? "Не зараз" : "Повернутися до читання")
+            (store.bookURL == nil ? Text("Не зараз") : Text("Повернутися до читання"))
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(muted)
                 .padding(.horizontal, 20)
@@ -318,7 +319,8 @@ struct DonationView: View {
         value: String,
         copyValue: String,
         field: Field,
-        monospaced: Bool = false
+        monospaced: Bool = false,
+        wraps: Bool = false
     ) -> some View {
         let isCopied = copiedField == field
 
@@ -334,8 +336,12 @@ struct DonationView: View {
                         design: monospaced ? .monospaced : .default
                     ))
                     .foregroundStyle(onVoid)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    // IBAN довший за рядок телефона навіть зменшеним — він
+                    // переноситься між групами цифр, а не обрізається.
+                    // Решта лишається в один рядок і за потреби дрібнішає.
+                    .lineLimit(wraps ? 2 : 1)
+                    .minimumScaleFactor(wraps ? 0.8 : 0.6)
+                    .fixedSize(horizontal: false, vertical: wraps)
                     .textSelection(.enabled)
             }
 
@@ -347,7 +353,7 @@ struct DonationView: View {
                 HStack(spacing: 6) {
                     Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
                         .contentTransition(.symbolEffect(.replace))
-                    Text(isCopied ? "Скопійовано!" : "Скопіювати")
+                    isCopied ? Text("Скопійовано!") : Text("Скопіювати")
                 }
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(isCopied ? Color(BookAppearance.voidColor) : onVoid)
@@ -361,7 +367,7 @@ struct DonationView: View {
             }
             .buttonStyle(PressableStyle())
             .animation(.easeOut(duration: 0.15), value: isCopied)
-            .accessibilityLabel(isCopied ? "\(title) скопійовано" : "Скопіювати: \(title)")
+            .accessibilityLabel(isCopied ? String(localized: "\(title) скопійовано", bundle: AppLanguage.bundle) : String(localized: "Скопіювати: \(title)", bundle: AppLanguage.bundle))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -370,7 +376,7 @@ struct DonationView: View {
     private func copy(_ value: String, field: Field) {
         UIPasteboard.general.string = value
         copiedField = field
-        UIAccessibility.post(notification: .announcement, argument: "Скопійовано")
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Скопійовано", bundle: AppLanguage.bundle))
 
         resetTask?.cancel()
         resetTask = Task {

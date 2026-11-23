@@ -33,6 +33,15 @@ final class ReaderStore {
     /// Чи показаний екран «Підтримати проєкт».
     var isShowingDonation = false
 
+    /// Мова інтерфейсу. Зміна діє одразу: інтерфейс перемальовується з
+    /// новими рядками.
+    var language: AppLanguage = AppLanguage.stored {
+        didSet {
+            guard language != oldValue else { return }
+            AppLanguage.apply(language)
+        }
+    }
+
     /// Додані книги. Тримаємо в сховищі, а не перечитуємо теку в кожному
     /// відображенні: перелік потрібен і початковому екрану, і аркушу поверх
     /// читання, і оновлюється лише тоді, коли книг справді побільшало чи
@@ -136,6 +145,16 @@ final class ReaderStore {
     }
 
     init() {
+        // Першим ділом: усі подальші рядки, навіть помилки відкриття
+        // останньої книги, мають прийти вже обраною мовою.
+        // `--lang en|uk` — для перевірки без дотику до перемикача.
+        if let index = CommandLine.arguments.firstIndex(of: "--lang"),
+           index + 1 < CommandLine.arguments.count,
+           let forced = AppLanguage(rawValue: CommandLine.arguments[index + 1]) {
+            language = forced
+        }
+        AppLanguage.apply(language, persist: false)
+
         Self.restoreAppearance()
         storedFontSize = BookAppearance.fontSize
         storedPaperColor = BookAppearance.paperColor
@@ -271,7 +290,7 @@ final class ReaderStore {
     /// `Sources/Resources/sample.epub`, коли зʼявиться бібліотека (Фаза 2).
     func openSample() {
         guard let url = Bundle.main.url(forResource: "sample", withExtension: "epub") else {
-            errorMessage = "Зразок не знайдено в бандлі."
+            errorMessage = String(localized: "Зразок не знайдено в бандлі.", bundle: AppLanguage.bundle)
             return
         }
         open(fileURL: url)

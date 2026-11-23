@@ -180,7 +180,7 @@ struct ReaderView: View {
 
     private func toolbarButton(
         _ systemName: String,
-        label: String,
+        label: LocalizedStringKey,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -264,7 +264,7 @@ struct ReaderView: View {
                 hoveredButton = hovering ? direction : nil
             }
         }
-        .accessibilityLabel(forward ? "Наступна сторінка" : "Попередня сторінка")
+        .accessibilityLabel(forward ? Text("Наступна сторінка") : Text("Попередня сторінка"))
     }
 
     // MARK: - Підвал
@@ -414,7 +414,7 @@ struct ReaderView: View {
 
     private func jumpButton(
         _ systemName: String,
-        label: String,
+        label: LocalizedStringKey,
         action: @escaping () async -> Void
     ) -> some View {
         Button {
@@ -456,12 +456,12 @@ struct ReaderView: View {
         // запізненням на один перехід.
         if isDraggingScrubber, host.totalPositions > 0 {
             let target = max(1, Int((shown * Double(host.totalPositions)).rounded()))
-            return "→ сторінка \(target) з \(host.totalPositions) · \(percent)%"
+            return String(localized: "→ сторінка \(target) з \(host.totalPositions) · \(percent)%", bundle: AppLanguage.bundle)
         }
 
         guard host.totalPositions > 0, let position = locator?.locations.position else {
             return "\(percent)%"
         }
-        return "Сторінка \(position) з \(host.totalPositions) · \(percent)%"
+        return String(localized: "Сторінка \(position) з \(host.totalPositions) · \(percent)%", bundle: AppLanguage.bundle)
     }
 }

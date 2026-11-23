@@ -33,7 +33,7 @@ final class ReaderHostViewController: UIViewController {
 
     /// Назва книги для шапки.
     var bookTitle: String {
-        navigator.publication.metadata.title ?? "Без назви"
+        navigator.publication.metadata.title ?? String(localized: "Без назви", bundle: AppLanguage.bundle)
     }
 
     /// Крайові тапи та стрілки клавіатури для гортання.
@@ -743,7 +743,7 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
 
     func navigator(_ navigator: Navigator, presentError error: NavigatorError) {
         let alert = UIAlertController(
-            title: "Помилка читання",
+            title: String(localized: "Помилка читання", bundle: AppLanguage.bundle),
             message: error.localizedDescription,
             preferredStyle: .alert
         )

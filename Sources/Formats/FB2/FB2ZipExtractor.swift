@@ -22,12 +22,12 @@ enum FB2ZipExtractor {
 
         var errorDescription: String? {
             switch self {
-            case .notZip: "Файл не схожий на архів ZIP."
-            case .noBook: "В архіві немає файлу .fb2."
-            case .encrypted: "Архів зашифровано паролем."
-            case let .unsupportedMethod(method): "Архів стиснуто непідтримуваним способом (\(method))."
-            case .tooLarge: "Книга в архіві завелика."
-            case .corrupted: "Архів пошкоджено."
+            case .notZip: String(localized: "Файл не схожий на архів ZIP.", bundle: AppLanguage.bundle)
+            case .noBook: String(localized: "В архіві немає файлу .fb2.", bundle: AppLanguage.bundle)
+            case .encrypted: String(localized: "Архів зашифровано паролем.", bundle: AppLanguage.bundle)
+            case let .unsupportedMethod(method): String(localized: "Архів стиснуто непідтримуваним способом (\(method)).", bundle: AppLanguage.bundle)
+            case .tooLarge: String(localized: "Книга в архіві завелика.", bundle: AppLanguage.bundle)
+            case .corrupted: String(localized: "Архів пошкоджено.", bundle: AppLanguage.bundle)
             }
         }
     }

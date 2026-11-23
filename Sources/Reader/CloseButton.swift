@@ -7,7 +7,7 @@ import SwiftUI
 /// шукають його в правому верхньому куті.
 struct CloseButton: View {
     let action: () -> Void
-    let label: String
+    let label: LocalizedStringKey
 
     var body: some View {
         Button(action: action) {

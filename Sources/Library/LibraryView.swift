@@ -178,7 +178,9 @@ struct LibraryView: View {
     }
 
     /// «копію» / «копії» / «копій» — щоб речення звучало по-людськи.
+    /// Англійській вистачає двох форм.
     private static func copiesWord(_ count: Int) -> String {
+        if AppLanguage.current == .en { return count == 1 ? "copy" : "copies" }
         let tens = count % 100
         if (11 ... 14).contains(tens) { return "копій" }
         return switch count % 10 {
@@ -193,7 +195,7 @@ struct LibraryView: View {
         var parts: [String] = []
         if let author = book.author, !author.isEmpty { parts.append(author) }
         if let progress = book.progress, book.isStarted {
-            parts.append("прочитано \(Int((progress * 100).rounded()))%")
+            parts.append(String(localized: "прочитано \(Int((progress * 100).rounded()))%", bundle: AppLanguage.bundle))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

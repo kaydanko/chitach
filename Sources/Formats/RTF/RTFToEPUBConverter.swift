@@ -30,7 +30,7 @@ enum RTFToEPUBConverter {
         var errorDescription: String? {
             switch self {
             case let .unreadable(name):
-                "Не вдалося прочитати файл «\(name)». Можливо, він пошкоджений."
+                String(localized: "Не вдалося прочитати файл «\(name)». Можливо, він пошкоджений.", bundle: AppLanguage.bundle)
             }
         }
     }

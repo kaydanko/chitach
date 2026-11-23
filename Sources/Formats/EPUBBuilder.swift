@@ -182,7 +182,7 @@ enum EPUBBuilder {
 
     private static func navXHTML(chapters: [Chapter], metadata: Metadata) -> String {
         let items = chapters.enumerated().map { index, chapter in
-            let title = chapter.title ?? "Частина \(index + 1)"
+            let title = chapter.title ?? String(localized: "Частина \(index + 1)", bundle: AppLanguage.bundle)
             return "      <li><a href=\"chapter\(index + 1).xhtml\">\(escape(title))</a></li>"
         }.joined(separator: "\n")
 

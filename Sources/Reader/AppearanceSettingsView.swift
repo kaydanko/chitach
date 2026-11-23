@@ -16,7 +16,7 @@ struct AppearanceSettingsView: View {
 
     private struct Theme: Identifiable {
         let id: String
-        let name: String
+        let name: LocalizedStringKey
         let paper: UInt32
         let ink: UInt32
     }
@@ -97,7 +97,7 @@ struct AppearanceSettingsView: View {
     /// малює рамку по вмісту — без явного розміру кнопки виходять різними.
     private func fontSizeButton(
         _ systemName: String,
-        label: String,
+        label: LocalizedStringKey,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
