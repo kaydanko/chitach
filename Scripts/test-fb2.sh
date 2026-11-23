@@ -18,7 +18,7 @@ cp "$FIXTURE" "$OUT/book.fb2"
 
 # AppLanguage — бо повідомлення й назви розділів конвертер бере обраною
 # мовою інтерфейсу.
-xcrun swiftc -O \
+xcrun swiftc -O -swift-version 6 \
   "$ROOT/Sources/App/AppLanguage.swift" \
   "$ROOT/Sources/Formats/EPUBBuilder.swift" \
   "$ROOT/Sources/Formats/FB2/FB2Parser.swift" \

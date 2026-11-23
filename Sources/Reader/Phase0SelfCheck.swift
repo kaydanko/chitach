@@ -204,11 +204,14 @@ enum Phase0SelfCheck {
                 // Запамʼятовуємо, що було до імпорту: якщо зразок збігся з
                 // книгою, яка вже лежить у бібліотеці, видаляти її потім не
                 // можна. Саме так перевірка й знищувала чужу фікстуру.
+                // За іменами, а не URL: шлях теки може йти крізь символьне
+                // посилання, і тоді файл, що вже лежав, «не впізнається» —
+                // а перевірка видалила б чужу книгу.
                 let before = Set(
-                    (try? FileManager.default.contentsOfDirectory(
+                    ((try? FileManager.default.contentsOfDirectory(
                         at: BookImportService.booksDirectory,
                         includingPropertiesForKeys: nil
-                    )) ?? []
+                    )) ?? []).map(\.lastPathComponent)
                 )
 
                 let imported = try await BookImportService.importBook(from: provider)
@@ -223,6 +226,12 @@ enum Phase0SelfCheck {
                 if let again = NSItemProvider(contentsOf: sample) {
                     let second = try await BookImportService.importBook(from: again)
                     log(second == imported, "повторне додавання: \(second.lastPathComponent)")
+                    // Провал означає, що в бібліотеку лягла зайва копія. На
+                    // Mac бібліотека — справжня тека «Документи», тож
+                    // прибираємо за собою навіть тоді.
+                    if second != imported, !before.contains(second.lastPathComponent) {
+                        try? FileManager.default.removeItem(at: second)
+                    }
                 } else {
                     log(false, "повторне додавання: провайдера не зібрати")
                 }
@@ -236,8 +245,11 @@ enum Phase0SelfCheck {
                 let third = try BookImportService.importBook(from: renamed)
                 log(third == imported, "інша назва, той самий вміст: \(third.lastPathComponent)")
                 try? FileManager.default.removeItem(at: renamed)
+                if third != imported, !before.contains(third.lastPathComponent) {
+                    try? FileManager.default.removeItem(at: third)
+                }
 
-                if !before.contains(imported) {
+                if !before.contains(imported.lastPathComponent) {
                     try? FileManager.default.removeItem(at: imported)
                 }
             } catch {
@@ -295,7 +307,14 @@ enum Phase0SelfCheck {
         // Прибираємо лише свої копії. Загальне прибирання зачепило б і
         // решту бібліотеки: у теці перевірок лежать книги з однаковим
         // вмістом під різними назвами, і одна з них щоразу зникала.
-        let ourCopies = await LibraryStore.redundantCopies().filter { copies.contains($0.url) }
+        // Звіряємо за іменем файлу, як і сам застосунок (`LibraryBook.id`,
+        // ключ місця читання). Повний URL не годиться: перелік теки віддає
+        // справжній шлях, а `booksDirectory` може йти крізь символьне
+        // посилання (`/tmp` → `/private/tmp`), і тоді жодна копія «не
+        // наша», хоч знайдено їх правильно.
+        let copyNames = Set(copies.map(\.lastPathComponent))
+        let ourCopies = await LibraryStore.redundantCopies()
+            .filter { copyNames.contains($0.url.lastPathComponent) }
         for copy in ourCopies { try? LibraryStore.remove(copy) }
         let removed = ourCopies.count
         let left = copies.filter { FileManager.default.fileExists(atPath: $0.path) }

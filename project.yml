@@ -112,20 +112,20 @@ targets:
         SUPPORTS_MACCATALYST: YES
         DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: NO
         MACOSX_DEPLOYMENT_TARGET: "14.0"
-        # Swift 5 language mode — свідомо, не через недогляд.
+        # Swift 6 language mode — лише для нашого коду.
         #
-        # Readium 3.11.0 зібраний під swift-tools-version:5.10. Його публічні
-        # типи (Publication, AssetRetriever, Asset) не Sendable. У Swift 6
-        # language mode будь-який виклик Readium з @MainActor-коду дає
-        # SendingRisksDataRace як помилку компіляції.
+        # Readium 3.11.x досі на swift-tools-version:5.10 і далі збирається
+        # у власному режимі Swift 5: мовний режим пакета задає його
+        # Package.swift, а не ця настройка. Чекати, доки Readium перейде
+        # сам, не довелося — межа з ним уже чиста: виклики, які компілятор
+        # вважав передачею не-Sendable `Publication`, перевірено в коді
+        # Readium і позначено `@preconcurrency import ReadiumShared` (див.
+        # ReaderHostViewController.swift), решту виправлено в нашому коді.
         #
-        # Readium Playground @ 3.11.0 не задає SWIFT_VERSION взагалі, тобто
-        # теж працює в Swift 5 mode з увімкненими approachable-concurrency
-        # прапорцями. Ми відтворюємо саме цю конфігурацію.
-        #
-        # Перехід на 6.0 — окремий пункт Фази 7, після того як Readium сам
-        # перейде на Swift 6 tools.
-        SWIFT_VERSION: "5.0"
+        # Наслідок режиму 6, про який варто памʼятати: порушення ізоляції
+        # акторів тут уже не попередження, а помилка компіляції, а
+        # невідповідність виконавця перевіряється й під час роботи.
+        SWIFT_VERSION: "6.0"
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_STRICT_CONCURRENCY: complete
@@ -161,20 +161,20 @@ targets:
         product: ReadiumStreamer
     settings:
       base:
-        # Swift 5 language mode — свідомо, не через недогляд.
+        # Swift 6 language mode — лише для нашого коду.
         #
-        # Readium 3.11.0 зібраний під swift-tools-version:5.10. Його публічні
-        # типи (Publication, AssetRetriever, Asset) не Sendable. У Swift 6
-        # language mode будь-який виклик Readium з @MainActor-коду дає
-        # SendingRisksDataRace як помилку компіляції.
+        # Readium 3.11.x досі на swift-tools-version:5.10 і далі збирається
+        # у власному режимі Swift 5: мовний режим пакета задає його
+        # Package.swift, а не ця настройка. Чекати, доки Readium перейде
+        # сам, не довелося — межа з ним уже чиста: виклики, які компілятор
+        # вважав передачею не-Sendable `Publication`, перевірено в коді
+        # Readium і позначено `@preconcurrency import ReadiumShared` (див.
+        # ReaderHostViewController.swift), решту виправлено в нашому коді.
         #
-        # Readium Playground @ 3.11.0 не задає SWIFT_VERSION взагалі, тобто
-        # теж працює в Swift 5 mode з увімкненими approachable-concurrency
-        # прапорцями. Ми відтворюємо саме цю конфігурацію.
-        #
-        # Перехід на 6.0 — окремий пункт Фази 7, після того як Readium сам
-        # перейде на Swift 6 tools.
-        SWIFT_VERSION: "5.0"
+        # Наслідок режиму 6, про який варто памʼятати: порушення ізоляції
+        # акторів тут уже не попередження, а помилка компіляції, а
+        # невідповідність виконавця перевіряється й під час роботи.
+        SWIFT_VERSION: "6.0"
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_STRICT_CONCURRENCY: complete

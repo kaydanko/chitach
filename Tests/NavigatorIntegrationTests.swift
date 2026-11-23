@@ -1,5 +1,6 @@
 import ReadiumNavigator
-import ReadiumShared
+// Чому `@preconcurrency` — див. Sources/Reader/ReaderHostViewController.swift.
+@preconcurrency import ReadiumShared
 import Testing
 import UIKit
 @testable import Chytach
@@ -107,7 +108,7 @@ struct NavigatorIntegrationTests {
         let start = try #require(navigator.currentLocation)
         let startProgression = start.locations.totalProgression ?? 0
 
-        #expect(await navigator.goForward())
+        #expect(await navigator.goForward(options: NavigatorGoOptions()))
         try await waitUntil("позиція зросла після goForward") {
             (navigator.currentLocation?.locations.totalProgression ?? 0) > startProgression
         }
@@ -115,7 +116,7 @@ struct NavigatorIntegrationTests {
         let afterForward = try #require(navigator.currentLocation?.locations.totalProgression)
         #expect(afterForward > startProgression)
 
-        #expect(await navigator.goBackward())
+        #expect(await navigator.goBackward(options: NavigatorGoOptions()))
         try await waitUntil("позиція повернулась після goBackward") {
             (navigator.currentLocation?.locations.totalProgression ?? 1) <= startProgression
         }
@@ -131,7 +132,7 @@ struct NavigatorIntegrationTests {
         var received: [Locator] = []
         host.onLocationChange = { received.append($0) }
 
-        #expect(await host.navigator.goForward())
+        #expect(await host.navigator.goForward(options: NavigatorGoOptions()))
         try await waitUntil("прийшов колбек зміни позиції") { !received.isEmpty }
 
         #expect(!received.isEmpty)
@@ -159,7 +160,7 @@ struct NavigatorIntegrationTests {
         let toc = try await navigator.publication.tableOfContents().get()
         let target = try #require(toc.dropFirst(2).first ?? toc.last)
 
-        #expect(await navigator.go(to: target))
+        #expect(await navigator.go(to: target, options: NavigatorGoOptions()))
         try await waitUntil("навігатор перейшов у цільовий ресурс") {
             navigator.currentLocation?.href.string.contains(
                 target.url().removingQuery().removingFragment().lastPathSegment ?? "\u{0}"

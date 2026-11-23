@@ -11,9 +11,11 @@
 
 import Foundation
 
-private var failures = 0
+// Головний актор: перевірки виконуються послідовно в одному потоці, і в
+// режимі Swift 6 спільний лічильник має належати комусь явно.
+@MainActor private var failures = 0
 
-private func check(_ name: String, _ condition: Bool, _ detail: String = "") {
+@MainActor private func check(_ name: String, _ condition: Bool, _ detail: String = "") {
     print((condition ? "  ok   " : "  ПРОВАЛ") + " \(name)" + (condition ? "" : "  \(detail)"))
     if !condition { failures += 1 }
 }
@@ -23,7 +25,7 @@ private func rtf(_ body: String) -> Data {
 }
 private let png = "89504e470d0a1a0a"          // сигнатура PNG — досить для перевірки
 private func pict(_ wrapper: String = "") -> String { "{\\pict\\pngblip\\picw4\\pich4 \(png)}" }
-@main
+@main @MainActor
 enum RTFPictureExtractorChecks {
     static func main() {
         print("1. Звичайна група")

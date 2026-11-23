@@ -1,5 +1,6 @@
 import Foundation
-import ReadiumShared
+// Чому `@preconcurrency` — див. Sources/Reader/ReaderHostViewController.swift.
+@preconcurrency import ReadiumShared
 import Testing
 @testable import Chytach
 

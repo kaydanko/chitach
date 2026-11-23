@@ -6,7 +6,7 @@ source "${0:A:h}/env.sh"
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
 
-xcrun swiftc -O \
+xcrun swiftc -O -swift-version 6 \
   "$ROOT/Sources/Formats/RTF/RTFPictureExtractor.swift" \
   "$ROOT/Tests/Standalone/RTFPictureExtractorChecks.swift" \
   -o "$OUT/checks"
