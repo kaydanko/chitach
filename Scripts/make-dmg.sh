@@ -58,6 +58,16 @@ rm -rf "$STAGE"
 #
 # Щоб запустити саме цю збірку, відкрийте образ і перетягніть застосунок у
 # «Програми» — або зберіть ще раз без пакування.
-rm -rf "$APP"
+# Знімаємо з обліку, а не просто вилучаємо: `xcodebuild` реєструє зібраний
+# застосунок у системі ще під час збірки, і сам запис переживає теку —
+# в переліках залишається Chytach із перекресленою піктограмою.
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+forget_app() {
+  [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -u "$1" >/dev/null 2>&1
+  rm -rf "$1"
+}
+
+forget_app "$APP"
 
 echo "готово: $DMG ($(du -h "$DMG" | cut -f1))"
