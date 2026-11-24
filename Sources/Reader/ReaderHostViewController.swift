@@ -111,11 +111,21 @@ final class ReaderHostViewController: UIViewController {
         viewRespectsSystemMinimumLayoutMargins = false
         additionalSafeAreaInsets = .zero
 
+        // Вебвʼю тепер може бути ширшим за видиму область: саме так
+        // виходить поле вужче за половину проміжку між колонками. Зайве
+        // має відтинатися, а не вилазити на панелі.
+        view.clipsToBounds = true
+
+        view.addSubview(grainBackdrop)
+
         addChild(navigator)
-        navigator.view.frame = view.bounds
-        navigator.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        // Розмір і положення задаємо самі, у `viewDidLayoutSubviews`:
+        // авторозмір підганяв би вебвʼю рівно під вид, а він має бути
+        // зсунутий на бічні поля.
+        navigator.view.autoresizingMask = []
         view.addSubview(navigator.view)
         navigator.didMove(toParent: self)
+        layoutNavigator()
 
         clearNavigatorBackground()
         directionalNavigation.bind(to: navigator)
@@ -218,6 +228,40 @@ final class ReaderHostViewController: UIViewController {
         cover.alpha = 0
         return cover
     }()
+
+    /// Зерно під вебвʼю.
+    ///
+    /// Потрібне лише тоді, коли бічне поле ширше за половину проміжку: тоді
+    /// вебвʼю вужчий за вид, і з краю лишається смуга, якої документ не
+    /// малює. Без цього шару там був би чистий колір паперу — помітний шов
+    /// рівно на межі, де зерно обривається. Крок плитки той самий, що в
+    /// `pageCSS`: 128 pt, бо зображення @2x.
+    private lazy var grainBackdrop: UIImageView = {
+        let view = UIImageView()
+        view.backgroundColor = .clear
+        if let url = Bundle.main.url(forResource: "grain@2x", withExtension: "png"),
+           let image = UIImage(contentsOfFile: url.path)
+        {
+            view.image = image.resizableImage(withCapInsets: .zero, resizingMode: .tile)
+        }
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        return view
+    }()
+
+    /// Ставить вебвʼю на місце з урахуванням бічних полів.
+    ///
+    /// Відʼємний відступ розширює — так і задумано: поле, вужче за половину
+    /// проміжку, означає, що край сторінки має піти за межі видимого.
+    private func layoutNavigator() {
+        let inset = BookAppearance.textInsets(twoColumns: isTwoColumns).view
+        grainBackdrop.frame = view.bounds
+        navigator.view.frame = view.bounds.inset(by: UIEdgeInsets(
+            top: 0,
+            left: inset.left,
+            bottom: 0,
+            right: inset.right
+        ))
+    }
 
     /// Чи накрито читалку просто зараз. Для діагностики: застряглий шар
     /// означав би чорний екран замість книги, і помітити це треба машинно.
@@ -640,6 +684,7 @@ final class ReaderHostViewController: UIViewController {
         if navigator.view.backgroundColor != BookAppearance.paperColor {
             navigator.view.backgroundColor = BookAppearance.paperColor
         }
+        layoutNavigator()
         updateColumnsIfNeeded()
     }
 
@@ -799,7 +844,6 @@ final class ReaderHostViewController: UIViewController {
     /// в тексті. Викликати після зміни налаштувань.
     func refreshAppearance() async {
         view.backgroundColor = BookAppearance.paperColor
-        await applyPageStyle()
         await applyColumns(twoColumns: isTwoColumns, force: true)
     }
 
@@ -808,8 +852,8 @@ final class ReaderHostViewController: UIViewController {
     /// User script спрацьовує лише при завантаженні ресурсу, тому зміну
     /// кольору треба донести окремо — інакше вона проявиться лише після
     /// переходу в інший розділ.
-    private func applyPageStyle() async {
-        let css = BookAppearance.pageCSS
+    private func applyPageStyle(twoColumns: Bool) async {
+        let css = BookAppearance.pageCSS(twoColumns: twoColumns)
         let script = """
         (function () {
             var style = document.getElementById("\(BookAppearance.styleElementID)");
@@ -831,6 +875,12 @@ final class ReaderHostViewController: UIViewController {
         defer { isRelayouting = false }
 
         let saved = navigator.currentLocation
+
+        // Спершу геометрія вебвʼю і стиль, потім налаштування: Readium
+        // рахує пагінацію від ширини вигляду, і якщо ширина зміниться
+        // після перерахунку, сторінки розійдуться з прокруткою.
+        layoutNavigator()
+        await applyPageStyle(twoColumns: twoColumns)
 
         navigator.submitPreferences(BookAppearance.preferences(twoColumns: twoColumns))
         clearNavigatorBackground()
@@ -983,7 +1033,7 @@ extension ReaderHostViewController: EPUBNavigatorDelegate {
         _ navigator: EPUBNavigatorViewController,
         setupUserScripts userContentController: WKUserContentController
     ) {
-        let css = BookAppearance.pageCSS
+        let css = BookAppearance.pageCSS(twoColumns: isTwoColumns)
 
         // Ідентифікатор потрібен, щоб потім оновлювати стиль наживо при
         // зміні кольорів, а не перестворювати навігатор.

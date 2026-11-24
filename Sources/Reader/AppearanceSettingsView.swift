@@ -87,7 +87,15 @@ struct AppearanceSettingsView: View {
                         wider: "Ширше праве поле"
                     ) { store.stepRightMargin(by: $0) }
 
-                    Text("Боки регулюються окремо: якщо вічко камери лізе на текст, розширте поле з того боку.")
+                    marginRow(
+                        "Проміжок між колонками",
+                        value: store.spreadGap,
+                        narrower: "Вужчий проміжок",
+                        wider: "Ширший проміжок",
+                        range: BookAppearance.minimumSpreadGap...BookAppearance.maximumSpreadGap
+                    ) { store.stepSpreadGap(by: $0) }
+
+                    Text("Боки регулюються окремо: якщо вічко камери лізе на текст, розширте поле з того боку. Проміжок між колонками від них не залежить і діє на широкому вікні, де сторінка ділиться надвоє.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -117,21 +125,25 @@ struct AppearanceSettingsView: View {
         value: Double,
         narrower: LocalizedStringKey,
         wider: LocalizedStringKey,
+        range: ClosedRange<Double> = BookAppearance.minimumSideMargin...BookAppearance.maximumSideMargin,
         step: @escaping (Int) -> Void
     ) -> some View {
-        HStack {
+        let canNarrow = { (v: Double) in v > range.lowerBound }
+        let canWiden = { (v: Double) in v < range.upperBound }
+
+        return HStack {
             Text(title)
             Spacer(minLength: 12)
 
             stepButton("minus", label: narrower) { step(-1) }
-                .disabled(!store.canNarrow(value))
+                .disabled(!canNarrow(value))
 
             Text("\(Int(value))")
                 .monospacedDigit()
                 .frame(minWidth: 34)
 
             stepButton("plus", label: wider) { step(1) }
-                .disabled(!store.canWiden(value))
+                .disabled(!canWiden(value))
         }
     }
 

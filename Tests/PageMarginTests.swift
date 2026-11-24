@@ -29,7 +29,7 @@ struct PageMarginTests {
     /// двома власними правилами такої самої ваги, тож їх має бути рівно два.
     @Test("Поле задане двічі, щоб перебити обидва правила Readium")
     func pageCSSAnswersBothReadiumRules() {
-        let css = BookAppearance.pageCSS
+        let css = BookAppearance.pageCSS(twoColumns: false)
 
         #expect(css.contains(":root[style] body"))
         #expect(css.components(separatedBy: "padding-left:").count - 1 == 2)
@@ -40,9 +40,36 @@ struct PageMarginTests {
     /// і повернення на місце чекає таймауту замість негайного перемалювання.
     @Test("Поля доходять до налаштувань Readium")
     func preferencesCarryAverageMargin() {
-        let expected = (BookAppearance.leftMargin + BookAppearance.rightMargin)
-            / (2 * BookAppearance.defaultSideMargin)
+        let document = BookAppearance.textInsets(twoColumns: false).document
+        let expected = (document.left + document.right) / (2 * BookAppearance.defaultSideMargin)
 
         #expect(BookAppearance.preferences(twoColumns: false).pageMargins == expected)
+    }
+
+    /// Проміжок між колонками не залежить від бічних полів: усередині
+    /// документа він дорівнює сумі його полів, а різницю добирає зсув
+    /// вебвʼю.
+    @Test("Проміжок тримається свого значення, поля — свого")
+    func gapStaysIndependentOfMargins() {
+        let left = BookAppearance.leftMargin
+        let right = BookAppearance.rightMargin
+        let gap = BookAppearance.spreadGap
+        let insets = BookAppearance.textInsets(twoColumns: true)
+
+        #expect(insets.document.left + insets.document.right == gap)
+        #expect(insets.document.left + insets.view.left == left)
+        #expect(insets.document.right + insets.view.right == right)
+    }
+
+    /// В одну колонку проміжку немає, тож і зсувати вебвʼю немає потреби:
+    /// на телефоні папір лишається на всю ширину.
+    @Test("В одну колонку поле цілком належить документу")
+    func singleColumnKeepsEverythingInDocument() {
+        let insets = BookAppearance.textInsets(twoColumns: false)
+
+        #expect(insets.view.left == 0)
+        #expect(insets.view.right == 0)
+        #expect(insets.document.left == BookAppearance.leftMargin)
+        #expect(insets.document.right == BookAppearance.rightMargin)
     }
 }

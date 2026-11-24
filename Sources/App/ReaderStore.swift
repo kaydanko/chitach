@@ -20,6 +20,7 @@ final class ReaderStore {
     private static let inkKey = "readerInkColor"
     private static let leftMarginKey = "readerLeftMargin"
     private static let rightMarginKey = "readerRightMargin"
+    private static let spreadGapKey = "readerSpreadGap"
 
     /// Книга, яку читаємо. `nil` — показуємо екран відкриття.
     var bookURL: URL? {
@@ -80,6 +81,7 @@ final class ReaderStore {
     private var storedInkColor = BookAppearance.defaultInk
     private var storedLeftMargin = BookAppearance.defaultSideMargin
     private var storedRightMargin = BookAppearance.defaultSideMargin
+    private var storedSpreadGap = BookAppearance.defaultSpreadGap
 
     var fontSize: Double {
         get { storedFontSize }
@@ -144,6 +146,23 @@ final class ReaderStore {
         }
     }
 
+    /// Проміжок між колонками на розвороті. Від бічних полів не залежить.
+    var spreadGap: Double {
+        get { storedSpreadGap }
+        set {
+            let clamped = BookAppearance.clampSpreadGap(newValue)
+            guard clamped != storedSpreadGap else { return }
+            storedSpreadGap = clamped
+            BookAppearance.spreadGap = clamped
+            UserDefaults.standard.set(clamped, forKey: Self.spreadGapKey)
+            appearanceRevision += 1
+        }
+    }
+
+    func stepSpreadGap(by steps: Int) {
+        spreadGap += Double(steps) * BookAppearance.sideMarginStep
+    }
+
     /// Крок бічного поля: `+1` ширше, `-1` вужче.
     func stepLeftMargin(by steps: Int) {
         leftMargin += Double(steps) * BookAppearance.sideMarginStep
@@ -151,14 +170,6 @@ final class ReaderStore {
 
     func stepRightMargin(by steps: Int) {
         rightMargin += Double(steps) * BookAppearance.sideMarginStep
-    }
-
-    func canWiden(_ margin: Double) -> Bool {
-        margin < BookAppearance.maximumSideMargin
-    }
-
-    func canNarrow(_ margin: Double) -> Bool {
-        margin > BookAppearance.minimumSideMargin
     }
 
     /// Крок кегля: `+1` більший, `-1` менший.
@@ -175,6 +186,7 @@ final class ReaderStore {
         fontSize = BookAppearance.minimumFontSize
         leftMargin = BookAppearance.defaultSideMargin
         rightMargin = BookAppearance.defaultSideMargin
+        spreadGap = BookAppearance.defaultSpreadGap
     }
 
     private static func restoreAppearance() {
@@ -197,6 +209,9 @@ final class ReaderStore {
         if let right = defaults.object(forKey: rightMarginKey) as? Double {
             BookAppearance.rightMargin = BookAppearance.clampSideMargin(right)
         }
+        if let gap = defaults.object(forKey: spreadGapKey) as? Double {
+            BookAppearance.spreadGap = BookAppearance.clampSpreadGap(gap)
+        }
     }
 
     init() {
@@ -216,6 +231,7 @@ final class ReaderStore {
         storedInkColor = BookAppearance.inkColor
         storedLeftMargin = BookAppearance.leftMargin
         storedRightMargin = BookAppearance.rightMargin
+        storedSpreadGap = BookAppearance.spreadGap
 
         // `--settings` одразу відкриває аркуш оформлення. Потрібно, щоб
         // перевіряти його вигляд без вказівника. Разом із `--open` та

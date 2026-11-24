@@ -120,7 +120,10 @@ enum BookAppearance {
             // розкладку, не повідомляє про новий viewport, і повернення на
             // місце чекає таймауту: сторінка стрибає через дві секунди після
             // натискання. Зміна цього числа робить перерахунок негайним.
-            pageMargins: (leftMargin + rightMargin) / (2 * defaultSideMargin),
+            pageMargins: {
+                let document = textInsets(twoColumns: twoColumns).document
+                return (document.left + document.right) / (2 * defaultSideMargin)
+            }(),
             paragraphIndent: 1.0,
             publisherStyles: false,
             scroll: false,
@@ -213,6 +216,52 @@ enum BookAppearance {
         min(max(value.rounded(), minimumSideMargin), maximumSideMargin)
     }
 
+    /// Проміжок між колонками на розвороті — окреме значення, не сума
+    /// бічних полів.
+    ///
+    /// За замовчуванням саме сума двох типових полів: так розворот
+    /// виглядає точно як до появи цього налаштування.
+    static var spreadGap: Double = defaultSpreadGap
+
+    static let defaultSpreadGap: Double = defaultSideMargin * 2
+    static let minimumSpreadGap: Double = 0
+    static let maximumSpreadGap: Double = 240
+
+    static func clampSpreadGap(_ value: Double) -> Double {
+        min(max(value.rounded(), minimumSpreadGap), maximumSpreadGap)
+    }
+
+    /// Розподіл полів між документом і видом.
+    ///
+    /// Усередині документа проміжок між колонками **дорівнює** сумі бічних
+    /// полів, і це не вада реалізації, а властивість сітки колонок. Поле в
+    /// `body` повторюється в кожному фрагменті, тобто однакове з обох боків
+    /// кожної колонки; сторінка — це зсув по сітці на ширину екрана, тож
+    /// проміжок усередині сторінки й проміжок через її край — одна й та
+    /// сама відстань. Перевірено на всіх трьох важелях, якими це можна було
+    /// б обійти (`column-gap`, поле на `:root`, поле на `body`): щоразу
+    /// виходить `проміжок = ліве + праве`, а спроба зсунути колонки
+    /// відносно сторінки накопичує похибку з кожним гортанням.
+    ///
+    /// Тому проміжок лишається документу, а бічні поля доміряються зсувом
+    /// самого вебвʼю: вужчий за видиму область — з краю лишається смуга,
+    /// яку малює вид під ним (`paperColor` із зерном); ширший — зайве
+    /// відтинається. В одну колонку проміжку немає, і все поле знову задає
+    /// документ, тож на телефоні нічого не зсувається.
+    static func textInsets(
+        twoColumns: Bool
+    ) -> (document: (left: Double, right: Double), view: (left: Double, right: Double)) {
+        let left = clampSideMargin(leftMargin)
+        let right = clampSideMargin(rightMargin)
+
+        guard twoColumns else {
+            return (document: (left, right), view: (0, 0))
+        }
+
+        let half = clampSpreadGap(spreadGap) / 2
+        return (document: (half, half), view: (left - half, right - half))
+    }
+
     /// Ширина кнопки гортання біля краю.
     static let pageTurnButtonWidth: CGFloat = 30
 
@@ -294,7 +343,7 @@ enum BookAppearance {
         """
     }
 
-    static var pageCSS: String {
+    static func pageCSS(twoColumns: Bool) -> String {
         let grainLayer = grainDataURI.map {
             """
                 background-image: url(\($0)) !important;
@@ -304,7 +353,8 @@ enum BookAppearance {
             """
         } ?? ""
 
-        let margins = sideMarginDeclarations(left: leftMargin, right: rightMargin)
+        let document = textInsets(twoColumns: twoColumns).document
+        let margins = sideMarginDeclarations(left: document.left, right: document.right)
 
         return """
         :root {

@@ -100,12 +100,12 @@
         }
       }
     },
-    "Боки регулюються окремо: якщо вічко камери лізе на текст, розширте поле з того боку.": {
+    "Боки регулюються окремо: якщо вічко камери лізе на текст, розширте поле з того боку. Проміжок між колонками від них не залежить і діє на широкому вікні, де сторінка ділиться надвоє.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Each side is set on its own: if the camera cutout runs into the text, widen the margin on that side."
+            "value": "Each side is set on its own: if the camera cutout runs into the text, widen the margin on that side. The gap between columns is independent of them and applies to a wide window, where the page splits in two."
           }
         }
       }
@@ -216,6 +216,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Narrower right margin"
+          }
+        }
+      }
+    },
+    "Вужчий проміжок": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrower gap"
           }
         }
       }
@@ -761,6 +771,16 @@
         }
       }
     },
+    "Проміжок між колонками": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gap between columns"
+          }
+        }
+      }
+    },
     "Підтримати проєкт": {
       "localizations": {
         "en": {
@@ -1047,6 +1067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wider right margin"
+          }
+        }
+      }
+    },
+    "Ширший проміжок": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wider gap"
           }
         }
       }
