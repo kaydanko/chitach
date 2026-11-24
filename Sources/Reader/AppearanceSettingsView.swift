@@ -51,7 +51,7 @@ struct AppearanceSettingsView: View {
 
                 Section("Розмір тексту") {
                     HStack {
-                        fontSizeButton("minus", label: "Менший текст") {
+                        stepButton("minus", label: "Менший текст") {
                             store.stepFontSize(by: -1)
                         }
                         .disabled(!store.canDecreaseFontSize)
@@ -61,13 +61,33 @@ struct AppearanceSettingsView: View {
                             .monospacedDigit()
                         Spacer()
 
-                        fontSizeButton("plus", label: "Більший текст") {
+                        stepButton("plus", label: "Більший текст") {
                             store.stepFontSize(by: 1)
                         }
                         .disabled(!store.canIncreaseFontSize)
                     }
 
                     Text("Також: ⌘ і коліщатко миші, або ⌘+ і ⌘−.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Поля сторінки") {
+                    marginRow(
+                        "Ліве поле",
+                        value: store.leftMargin,
+                        narrower: "Вужче ліве поле",
+                        wider: "Ширше ліве поле"
+                    ) { store.stepLeftMargin(by: $0) }
+
+                    marginRow(
+                        "Праве поле",
+                        value: store.rightMargin,
+                        narrower: "Вужче праве поле",
+                        wider: "Ширше праве поле"
+                    ) { store.stepRightMargin(by: $0) }
+
+                    Text("Боки регулюються окремо: якщо вічко камери лізе на текст, розширте поле з того боку.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -91,11 +111,35 @@ struct AppearanceSettingsView: View {
         .onChange(of: ink) { _, new in store.inkColor = UIColor(new) }
     }
 
+    /// Рядок бічного поля: підпис, менше, значення, більше.
+    private func marginRow(
+        _ title: LocalizedStringKey,
+        value: Double,
+        narrower: LocalizedStringKey,
+        wider: LocalizedStringKey,
+        step: @escaping (Int) -> Void
+    ) -> some View {
+        HStack {
+            Text(title)
+            Spacer(minLength: 12)
+
+            stepButton("minus", label: narrower) { step(-1) }
+                .disabled(!store.canNarrow(value))
+
+            Text("\(Int(value))")
+                .monospacedDigit()
+                .frame(minWidth: 34)
+
+            stepButton("plus", label: wider) { step(1) }
+                .disabled(!store.canWiden(value))
+        }
+    }
+
     /// Обидві кнопки однакової висоти.
     ///
     /// Символи `minus` і `plus` мають різну власну висоту, а `.bordered`
     /// малює рамку по вмісту — без явного розміру кнопки виходять різними.
-    private func fontSizeButton(
+    private func stepButton(
         _ systemName: String,
         label: LocalizedStringKey,
         action: @escaping () -> Void
@@ -114,8 +158,20 @@ struct AppearanceSettingsView: View {
             .font(.system(size: 15 * store.fontSize))
             .foregroundStyle(ink)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
+            .padding(.vertical, 14)
+            .padding(.leading, previewInset(store.leftMargin))
+            .padding(.trailing, previewInset(store.rightMargin))
             .background(paper, in: .rect(cornerRadius: 8))
+    }
+
+    /// Поле у зразку — пропорція, а не ті самі пікселі.
+    ///
+    /// Зразок завжди вужчий за сторінку, а поле в 160 пікселів із двох
+    /// боків не лишило б у ньому місця на текст. Тут важливо бачити, який
+    /// бік ширший; точну відстань видно на самій сторінці.
+    private func previewInset(_ margin: Double) -> CGFloat {
+        let fraction = margin / BookAppearance.maximumSideMargin
+        return 4 + CGFloat(fraction) * 40
     }
 
     private func themeChip(_ theme: Theme) -> some View {

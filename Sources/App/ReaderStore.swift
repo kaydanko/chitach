@@ -18,6 +18,8 @@ final class ReaderStore {
     private static let fontSizeKey = "readerFontSize"
     private static let paperKey = "readerPaperColor"
     private static let inkKey = "readerInkColor"
+    private static let leftMarginKey = "readerLeftMargin"
+    private static let rightMarginKey = "readerRightMargin"
 
     /// Книга, яку читаємо. `nil` — показуємо екран відкриття.
     var bookURL: URL? {
@@ -76,6 +78,8 @@ final class ReaderStore {
     private var storedFontSize = BookAppearance.minimumFontSize
     private var storedPaperColor = BookAppearance.defaultPaper
     private var storedInkColor = BookAppearance.defaultInk
+    private var storedLeftMargin = BookAppearance.defaultSideMargin
+    private var storedRightMargin = BookAppearance.defaultSideMargin
 
     var fontSize: Double {
         get { storedFontSize }
@@ -114,6 +118,49 @@ final class ReaderStore {
         }
     }
 
+    /// Відступ від лівого краю сторінки до тексту, у пікселях CSS.
+    var leftMargin: Double {
+        get { storedLeftMargin }
+        set {
+            let clamped = BookAppearance.clampSideMargin(newValue)
+            guard clamped != storedLeftMargin else { return }
+            storedLeftMargin = clamped
+            BookAppearance.leftMargin = clamped
+            UserDefaults.standard.set(clamped, forKey: Self.leftMarginKey)
+            appearanceRevision += 1
+        }
+    }
+
+    /// Те саме праворуч.
+    var rightMargin: Double {
+        get { storedRightMargin }
+        set {
+            let clamped = BookAppearance.clampSideMargin(newValue)
+            guard clamped != storedRightMargin else { return }
+            storedRightMargin = clamped
+            BookAppearance.rightMargin = clamped
+            UserDefaults.standard.set(clamped, forKey: Self.rightMarginKey)
+            appearanceRevision += 1
+        }
+    }
+
+    /// Крок бічного поля: `+1` ширше, `-1` вужче.
+    func stepLeftMargin(by steps: Int) {
+        leftMargin += Double(steps) * BookAppearance.sideMarginStep
+    }
+
+    func stepRightMargin(by steps: Int) {
+        rightMargin += Double(steps) * BookAppearance.sideMarginStep
+    }
+
+    func canWiden(_ margin: Double) -> Bool {
+        margin < BookAppearance.maximumSideMargin
+    }
+
+    func canNarrow(_ margin: Double) -> Bool {
+        margin > BookAppearance.minimumSideMargin
+    }
+
     /// Крок кегля: `+1` більший, `-1` менший.
     func stepFontSize(by steps: Int) {
         fontSize += Double(steps) * BookAppearance.fontSizeStep
@@ -126,6 +173,8 @@ final class ReaderStore {
         paperColor = BookAppearance.defaultPaper
         inkColor = BookAppearance.defaultInk
         fontSize = BookAppearance.minimumFontSize
+        leftMargin = BookAppearance.defaultSideMargin
+        rightMargin = BookAppearance.defaultSideMargin
     }
 
     private static func restoreAppearance() {
@@ -141,6 +190,12 @@ final class ReaderStore {
         }
         if let ink = defaults.object(forKey: inkKey) as? Int {
             BookAppearance.inkColor = UIColor(hex: UInt32(truncatingIfNeeded: ink))
+        }
+        if let left = defaults.object(forKey: leftMarginKey) as? Double {
+            BookAppearance.leftMargin = BookAppearance.clampSideMargin(left)
+        }
+        if let right = defaults.object(forKey: rightMarginKey) as? Double {
+            BookAppearance.rightMargin = BookAppearance.clampSideMargin(right)
         }
     }
 
@@ -159,6 +214,8 @@ final class ReaderStore {
         storedFontSize = BookAppearance.fontSize
         storedPaperColor = BookAppearance.paperColor
         storedInkColor = BookAppearance.inkColor
+        storedLeftMargin = BookAppearance.leftMargin
+        storedRightMargin = BookAppearance.rightMargin
 
         // `--settings` одразу відкриває аркуш оформлення. Потрібно, щоб
         // перевіряти його вигляд без вказівника. Разом із `--open` та

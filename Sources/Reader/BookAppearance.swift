@@ -113,7 +113,14 @@ enum BookAppearance {
             columnCount: twoColumns ? .two : .one,
             fontSize: fontSize,
             hyphens: true,
-            pageMargins: 1.0,
+            // Справжні поля задає `pageCSS`, і воно перебиває це значення.
+            // Передаємо його з двох причин. Перша: якщо стиль колись не
+            // доїде, запасним лишиться середнє поле, а не чуже число. Друга
+            // важливіша — без зміни в налаштуваннях Readium не перераховує
+            // розкладку, не повідомляє про новий viewport, і повернення на
+            // місце чекає таймауту: сторінка стрибає через дві секунди після
+            // натискання. Зміна цього числа робить перерахунок негайним.
+            pageMargins: (leftMargin + rightMargin) / (2 * defaultSideMargin),
             paragraphIndent: 1.0,
             publisherStyles: false,
             scroll: false,
@@ -153,7 +160,9 @@ enum BookAppearance {
                 colWidth: CSSPxLength(minimumColumnWidth),
                 colCount: twoColumns ? .two : .one,
                 colGap: CSSPxLength(columnGap),
-                pageGutter: CSSPxLength(sideMargin),
+                // Значення запасне: справжні поля задає `pageCSS`, бо вони
+                // різні з боків, а тут лише одне число на обидва.
+                pageGutter: CSSPxLength(defaultSideMargin),
                 // Знімаємо `--RS__maxLineLength: 40rem`, яке перетворюється на
                 // `body { max-width: 640px }` і не дає колонкам заповнити
                 // ширину, а при фрагментації ще й зміщує текст від сторінки до
@@ -181,9 +190,28 @@ enum BookAppearance {
     /// створюємо не розкладкою, а полями всередині колонки.
     static let columnGap: Double = 0
 
-    /// Бічні поля. Мають умістити кнопки гортання, щоб текст під них не
-    /// підлазив.
-    static let sideMargin: Double = 42
+    /// Бічні поля за замовчуванням. Мають умістити кнопки гортання, щоб
+    /// текст під них не підлазив.
+    static let defaultSideMargin: Double = 42
+
+    /// Поля ліворуч і праворуч — окремі значення, а не одне спільне.
+    ///
+    /// Причина не стильова: на телефоні вічко камери з'їдає смугу біля
+    /// одного краю, і в горизонтальному положенні текст лізе під нього.
+    /// Симетричне поле довелося б розганяти з обох боків, втрачаючи рядок
+    /// там, де нічого не перекриває. Тому кожен бік регулюється сам.
+    static var leftMargin: Double = defaultSideMargin
+    static var rightMargin: Double = defaultSideMargin
+
+    /// Нуль дозволений навмисно: хто читає на вузькому екрані, має право
+    /// віддати тексту все до краю. Стеля — щоб поле не з'їло колонку.
+    static let minimumSideMargin: Double = 0
+    static let maximumSideMargin: Double = 160
+    static let sideMarginStep: Double = 4
+
+    static func clampSideMargin(_ value: Double) -> Double {
+        min(max(value.rounded(), minimumSideMargin), maximumSideMargin)
+    }
 
     /// Ширина кнопки гортання біля краю.
     static let pageTurnButtonWidth: CGFloat = 30
@@ -235,6 +263,37 @@ enum BookAppearance {
     /// `:root` виграє те правило, що йде пізніше, — наше.
     static let styleElementID = "chytach-appearance"
 
+    /// Бічні поля доводиться задавати двома правилами, і це не перестраховка.
+    ///
+    /// Readium CSS має на `body` два правила з `!important`: базове
+    /// `body { padding: 0 var(--RS__pageGutter) }` зі специфічністю (0,0,1) і
+    /// правило полів користувача `:root[style*="--USER__pageMargins"] body`
+    /// зі специфічністю (0,2,1). Друге діє завжди, бо `pageMargins` ми
+    /// передаємо в налаштуваннях. Наш стиль інжектиться в кінець `head`, тож
+    /// за рівної специфічності виграє він — але лише за рівної. Тому на
+    /// кожне правило Readium відповідаємо своїм такої самої ваги.
+    ///
+    /// `[style]` справджується завжди: Readium виписує свої змінні
+    /// інлайновим `style` на `<html>`. Якби колись перестав — впало б назад
+    /// на симетричне поле з `--RS__pageGutter`, а не на текст упритул до
+    /// краю.
+    private static let sideMarginSelector = ":root[style]"
+
+    /// Поле всередині `body`, а не в `contentInset` чи `padding` на `:root`.
+    ///
+    /// `:root` — контейнер колонок, його поле відсікається один раз від усієї
+    /// смуги, і крок прокрутки розійшовся б із шириною сторінки так само, як
+    /// це робить ненульовий проміжок між колонками. Поле на `body` навпаки
+    /// повторюється в кожному фрагменті, тобто на кожній сторінці.
+    /// Окремою функцією, а не прямо в `pageCSS`: так її перевіряє тест, не
+    /// чіпаючи глобальне оформлення, на яке спирається решта перевірок.
+    static func sideMarginDeclarations(left: Double, right: Double) -> String {
+        """
+            padding-left: \(Int(clampSideMargin(left)))px !important;
+            padding-right: \(Int(clampSideMargin(right)))px !important;
+        """
+    }
+
     static var pageCSS: String {
         let grainLayer = grainDataURI.map {
             """
@@ -244,6 +303,8 @@ enum BookAppearance {
                 background-attachment: fixed !important;
             """
         } ?? ""
+
+        let margins = sideMarginDeclarations(left: leftMargin, right: rightMargin)
 
         return """
         :root {
@@ -256,6 +317,10 @@ enum BookAppearance {
         body {
             background-color: transparent !important;
             background-image: none !important;
+        \(margins)
+        }
+        \(sideMarginSelector) body {
+        \(margins)
         }
         """
     }
