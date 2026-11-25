@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="start_hint">An e-book reader</string>
+    <string name="open_book">Open a book</string>
+    <string name="open_sample">Show the sample</string>
+    <string name="open_failed">Could not open the book</string>
+    <string name="book_unavailable">Access to the book was lost. Open it again.</string>
+</resources>

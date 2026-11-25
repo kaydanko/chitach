@@ -1,0 +1,55 @@
+# Збірка Windows-версії.
+#
+# Файл .msi/.exe можна зробити тільки на Windows: Tauri лінкує з WebView2 і
+# системними бібліотеками, яких на macOS немає. Тому збірка живе тут, а не
+# в Scripts/ поруч із рештою.
+#
+# Запуск: вручну на сторінці Actions або автоматично на теґ `win-v*`.
+
+name: Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "win-v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: Windows
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: Windows/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Залежності Rust збираються довго, але між запусками не змінюються.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: Windows/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chytach-Windows
+          if-no-files-found: error
+          path: |
+            Windows/src-tauri/target/release/bundle/msi/*.msi
+            Windows/src-tauri/target/release/bundle/nsis/*.exe

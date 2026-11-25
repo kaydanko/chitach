@@ -51,3 +51,26 @@ build-mac/
 
 # Внутрішній план розробки — лишається локальним
 PLAN.md
+
+# Android
+Android/.gradle/
+Android/local.properties
+Android/app/release/
+
+# Ключі підпису. Ні файл ключа, ні паролі до нього в репозиторії не місце:
+# втрата ключа означає, що оновлення поверх випущеної версії вже не
+# встановляться, а витік — що чужу збірку приймуть за нашу.
+Android/keystore.properties
+*.jks
+*.keystore
+.gstack/
+
+# Windows (Tauri + Vite)
+Windows/node_modules/
+Windows/dist/
+Windows/src-tauri/target/
+Windows/src-tauri/gen/
+
+# Збірки для поширення: у репозиторії їм не місце, вони в релізах.
+Android/dist/
+Windows/dist/

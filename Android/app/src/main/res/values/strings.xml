@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Chytach</string>
+    <string name="start_hint">Читалка електронних книг</string>
+    <string name="open_book">Відкрити книгу</string>
+    <string name="open_sample">Показати зразок</string>
+    <string name="open_failed">Не вдалося відкрити книгу</string>
+    <string name="book_unavailable">Доступ до книги втрачено. Відкрийте її знову.</string>
+</resources>
