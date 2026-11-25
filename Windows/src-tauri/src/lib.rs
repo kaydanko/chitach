@@ -36,7 +36,7 @@ struct BookState(Mutex<OpenBook>);
 /// гігабайтів: вистачить відкрити таку книгу, щоб застосунок зжер усю
 /// памʼять. Тому число з заголовка ні на що не впливає, а читання
 /// обривається на межі.
-const MAX_ENTRY_BYTES: u64 = 64 * 1024 * 1024;
+pub(crate) const MAX_ENTRY_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
 
 pub(crate) fn unpack(raw: Vec<u8>) -> Result<OpenBook, String> {
@@ -365,7 +365,7 @@ fn pick_book(app: tauri::AppHandle, state: State<'_, BookState>) -> Result<Optio
     let Some(picked) = app
         .dialog()
         .file()
-        .add_filter("Книги", &["epub", "txt", "text", "md", "markdown", "fb2", "fb2z", "zip"])
+        .add_filter("Книги", &["epub", "txt", "text", "md", "markdown", "fb2", "fb2z", "zip", "rtf"])
         .blocking_pick_file()
     else {
         return Ok(None);

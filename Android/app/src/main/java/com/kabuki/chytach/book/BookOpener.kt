@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.kabuki.chytach.format.Fb2Converter
+import com.kabuki.chytach.format.RtfConverter
 import com.kabuki.chytach.format.TextConverter
 import java.io.File
 import org.readium.r2.shared.publication.Publication
@@ -49,7 +50,8 @@ class BookOpener(private val application: Application) {
 
         if (extension in TextConverter.EXTENSIONS ||
             extension in Fb2Converter.EXTENSIONS ||
-            extension in Fb2Converter.ZIP_EXTENSIONS
+            extension in Fb2Converter.ZIP_EXTENSIONS ||
+            extension in RtfConverter.EXTENSIONS
         ) {
             return when (val converted = convert(book, name, extension)) {
                 is Try.Success -> open(converted.value)
@@ -75,6 +77,7 @@ class BookOpener(private val application: Application) {
                 in TextConverter.EXTENSIONS -> TextConverter.convert(data, title)
                 in Fb2Converter.EXTENSIONS -> Fb2Converter.convert(data, title)
                 in Fb2Converter.ZIP_EXTENSIONS -> Fb2Converter.convertZip(data, title)
+                in RtfConverter.EXTENSIONS -> RtfConverter.convert(data, title)
                 else -> return Try.failure(
                     org.readium.r2.shared.util.DebugError("Формат $extension поки не підтримується")
                 )

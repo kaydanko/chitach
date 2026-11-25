@@ -84,6 +84,17 @@ object Fb2Converter {
         return null
     }
 
+    /**
+     * Ідентифікатор, яким безпечно заповнювати атрибут.
+     *
+     * Усе це пише той, хто зібрав книгу: і `id` у зносці, і адреса
+     * картинки. Без перевірки туди можна вкласти лапку й дописати свій
+     * атрибут, а розділ книги малюється в кадрі зі скриптами.
+     */
+    private fun safeId(raw: String): String =
+        raw.take(128).map { if (it.isLetterOrDigit() && it.code < 128 || it in ".-_") it else '_' }
+            .joinToString("")
+
     private fun mediaExtension(mediaType: String): String = when (mediaType) {
         "image/png" -> "png"
         "image/gif" -> "gif"
@@ -144,13 +155,13 @@ object Fb2Converter {
                                     authorParts.clear()
                                 }
                                 if (name == "image" && descriptionPath.contains("coverpage")) {
-                                    book.coverId = parser.attr("href")?.removePrefix("#")
+                                    book.coverId = parser.attr("href")?.removePrefix("#")?.let(::safeId)
                                 }
                             }
 
                             Region.BODY, Region.NOTES -> when (name) {
                                 "section" -> if (region == Region.NOTES) {
-                                    noteId = parser.attr("id").orEmpty()
+                                    noteId = safeId(parser.attr("id").orEmpty())
                                     noteOutput.setLength(0)
                                 } else {
                                     sectionDepth++
@@ -166,11 +177,12 @@ object Fb2Converter {
                                     target().append("""<p class="empty-line"><br/></p>""")
 
                                 "image" -> parser.attr("href")?.let { href ->
-                                    target().append("""<img src="@@IMG:${href.removePrefix("#")}@@"/>""")
+                                    val id = safeId(href.removePrefix("#"))
+                                    target().append("""<img src="@@IMG:$id@@"/>""")
                                 }
 
                                 "a" -> {
-                                    val targetId = parser.attr("href").orEmpty().removePrefix("#")
+                                    val targetId = safeId(parser.attr("href").orEmpty().removePrefix("#"))
                                     var extra = ""
                                     if (parser.attr("type") == "note") {
                                         extra = """ class="note""""
@@ -249,7 +261,7 @@ object Fb2Converter {
                             runCatching { Base64.decode(cleaned, Base64.DEFAULT) }
                                 .getOrNull()
                                 ?.takeIf { it.isNotEmpty() && binaryId.isNotEmpty() }
-                                ?.let { book.binaries += Triple(binaryId, binaryType, it) }
+                                ?.let { book.binaries += Triple(safeId(binaryId), binaryType, it) }
                             binaryBuffer.setLength(0)
                             region = Region.OUTSIDE
                         }
@@ -398,13 +410,34 @@ object Fb2Converter {
         )
     }
 
-    /** Дістає FB2 із архіву й конвертує. */
+    /** Стеля на розпакований файл усередині архіву. */
+    private const val MAX_ENTRY_BYTES = 64L * 1024 * 1024
+
+    /**
+     * Дістає FB2 із архіву й конвертує.
+     *
+     * Читаємо з обмеженням: заявлений розмір усередині архіву пише той,
+     * хто його зібрав, і книга з сотнею гігабайтів у заголовку поклала б
+     * застосунок просто на відкритті.
+     */
     fun convertZip(data: ByteArray, fallbackTitle: String): ByteArray {
         ZipInputStream(ByteArrayInputStream(data)).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
                 if (!entry.isDirectory && entry.name.lowercase().endsWith(".fb2")) {
-                    return convert(zip.readBytes(), fallbackTitle)
+                    val out = java.io.ByteArrayOutputStream()
+                    val chunk = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val read = zip.read(chunk)
+                        if (read <= 0) break
+                        total += read
+                        if (total > MAX_ENTRY_BYTES) {
+                            throw IllegalArgumentException("Файл усередині архіву завеликий")
+                        }
+                        out.write(chunk, 0, read)
+                    }
+                    return convert(out.toByteArray(), fallbackTitle)
                 }
                 entry = zip.nextEntry
             }

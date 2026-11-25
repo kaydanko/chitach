@@ -98,6 +98,27 @@ fn attribute(event: &quick_xml::events::BytesStart, name: &str) -> Option<String
     })
 }
 
+/// Ідентифікатор, яким безпечно заповнювати атрибут.
+///
+/// Усе це пише той, хто зібрав книгу: і `id` у зносці, і адреса картинки.
+/// Без перевірки туди можна вкласти лапку й дописати свій атрибут, а
+/// розділ книги малюється в кадрі зі скриптами. Тому лишаємо рівно те, з
+/// чого складаються справжні ідентифікатори.
+fn safe_id(raw: &str) -> String {
+    let cleaned: String = raw
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(128)
+        .collect();
+    cleaned
+}
+
 fn media_extension(media_type: &str) -> &str {
     match media_type {
         "image/png" => "png",
@@ -183,7 +204,7 @@ fn parse(data: &[u8]) -> Result<Book, String> {
                             if name == "image" {
                                 if description_path.iter().any(|p| p == "coverpage") {
                                     book.cover_id = attribute(start, "href")
-                                        .map(|href| href.trim_start_matches('#').to_string());
+                                        .map(|href| safe_id(href.trim_start_matches('#')));
                                 }
                             }
                         }
@@ -197,7 +218,7 @@ fn parse(data: &[u8]) -> Result<Book, String> {
                             match name.as_str() {
                                 "section" => {
                                     if region == Region::Notes {
-                                        note_id = attribute(start, "id").unwrap_or_default();
+                                        note_id = attribute(start, "id").map(|id| safe_id(&id)).unwrap_or_default();
                                         note_output.clear();
                                     } else {
                                         section_depth += 1;
@@ -213,13 +234,13 @@ fn parse(data: &[u8]) -> Result<Book, String> {
                                 }
                                 "image" => {
                                     if let Some(href) = attribute(start, "href") {
-                                        let id = href.trim_start_matches('#').to_string();
+                                        let id = safe_id(href.trim_start_matches('#'));
                                         target.push_str(&format!("<img src=\"@@IMG:{id}@@\"/>"));
                                     }
                                 }
                                 "a" => {
                                     let href = attribute(start, "href").unwrap_or_default();
-                                    let target_id = href.trim_start_matches('#').to_string();
+                                    let target_id = safe_id(href.trim_start_matches('#'));
                                     let is_note =
                                         attribute(start, "type").as_deref() == Some("note");
 
@@ -278,7 +299,7 @@ fn parse(data: &[u8]) -> Result<Book, String> {
                     Region::Description if name == "image" => {
                         if description_path.iter().any(|p| p == "coverpage") {
                             book.cover_id = attribute(start, "href")
-                                .map(|href| href.trim_start_matches('#').to_string());
+                                .map(|href| safe_id(href.trim_start_matches('#')));
                         }
                     }
                     Region::Body | Region::Notes => {
@@ -293,7 +314,7 @@ fn parse(data: &[u8]) -> Result<Book, String> {
                             }
                             "image" => {
                                 if let Some(href) = attribute(start, "href") {
-                                    let id = href.trim_start_matches('#').to_string();
+                                    let id = safe_id(href.trim_start_matches('#'));
                                     target.push_str(&format!("<img src=\"@@IMG:{id}@@\"/>"));
                                 }
                             }
@@ -358,7 +379,7 @@ fn parse(data: &[u8]) -> Result<Book, String> {
                         {
                             if !bytes.is_empty() && !binary_id.is_empty() {
                                 book.binaries.push((
-                                    binary_id.clone(),
+                                    safe_id(&binary_id),
                                     binary_type.clone(),
                                     bytes,
                                 ));
@@ -583,8 +604,15 @@ pub fn convert_zip(data: &[u8], fallback_title: &str) -> Result<Vec<u8>, String>
         if !name.ends_with(".fb2") {
             continue;
         }
+        // Стеля та сама, що й для звичайної книги: заявлений розмір
+        // усередині архіву пише той, хто його зібрав.
         let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        file.take(crate::MAX_ENTRY_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > crate::MAX_ENTRY_BYTES {
+            return Err("Файл усередині архіву завеликий".to_string());
+        }
         return convert(&bytes, fallback_title);
     }
 
@@ -654,6 +682,22 @@ mod tests {
         assert_eq!(book.notes.len(), 1);
         assert!(book.chapters[1].body.contains("fb2-note-n1"));
         assert!(book.chapters[1].body.contains("backref"));
+    }
+
+    #[test]
+    fn чужий_атрибут_із_книги_не_потрапляє_в_розмітку() {
+        // Ідентифікатор із лапкою — спроба дописати свій атрибут у тег.
+        let evil = r##"<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns:l="http://www.w3.org/1999/xlink">
+  <description><title-info><book-title>Проба</book-title></title-info></description>
+  <body><section><p>Текст<a l:href="#x&quot; onload=&quot;alert(1)" type="note">1</a></p></section></body>
+  <body name="notes"><section id="x"><p>Нота</p></section></body>
+</FictionBook>"##;
+
+        let book = parse(evil.as_bytes()).unwrap();
+        let all: String = book.chapters.iter().map(|c| c.body.clone()).collect();
+        assert!(!all.contains("onload="), "атрибут із книги пройшов: {all}");
+        assert!(!all.contains("alert(1)"), "атрибут із книги пройшов: {all}");
     }
 
     #[test]

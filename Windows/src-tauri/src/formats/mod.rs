@@ -5,6 +5,7 @@
 //! немає й не потрібно.
 
 pub mod fb2;
+pub mod rtf;
 pub mod text;
 
 /// Чи вміємо ми перетворити цей файл на EPUB.
@@ -19,6 +20,9 @@ pub fn converter_for(extension: &str) -> Option<Converter> {
     if fb2::ZIP_EXTENSIONS.contains(&extension.as_str()) {
         return Some(Converter::Fb2Zip);
     }
+    if rtf::EXTENSIONS.contains(&extension.as_str()) {
+        return Some(Converter::Rtf);
+    }
     None
 }
 
@@ -26,6 +30,7 @@ pub enum Converter {
     Text,
     Fb2,
     Fb2Zip,
+    Rtf,
 }
 
 impl Converter {
@@ -34,6 +39,7 @@ impl Converter {
             Converter::Text => text::convert(data, title),
             Converter::Fb2 => fb2::convert(data, title),
             Converter::Fb2Zip => fb2::convert_zip(data, title),
+            Converter::Rtf => rtf::convert(data, title),
         }
     }
 }
