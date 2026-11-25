@@ -37,4 +37,19 @@
     <string name="library_empty">Empty so far. Add a book and it stays here.</string>
     <string name="add_book">Add a book</string>
     <string name="read_percent">%1$d%% read</string>
+    <string name="donate_title">Enjoying reading here?</string>
+    <string name="donate_body">Chytach is made by one person in their spare time. No ads, no subscriptions, no data collection. If the app has been useful, you can buy the developer a coffee. Contributions go towards time for new features.</string>
+    <string name="donate_voluntary">This is entirely voluntary. The reader stays the same without it.</string>
+    <string name="donate_jar">monobank jar</string>
+    <string name="donate_custom_amount">Another amount, ₴</string>
+    <string name="donate_via_monobank">Donate via monobank</string>
+    <string name="donate_jar_note">The monobank jar opens, in the bank app or in a browser. Any bank\'s card works; the amount is in hryvnia.</string>
+    <string name="donate_card">Or a card transfer</string>
+    <string name="donate_card_number">Card number</string>
+    <string name="donate_copy">Copy</string>
+    <string name="donate_copied">Copied!</string>
+    <string name="donate_currency_note">The card is in hryvnia (UAH). If you pay with a card in another currency, your bank converts at its own rate and may charge a fee — worth checking what gets debited.</string>
+    <string name="donate_not_now">Not now</string>
+    <string name="donate_back_to_reading">Back to reading</string>
+    <string name="support">Support the project</string>
 </resources>

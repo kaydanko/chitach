@@ -333,6 +333,88 @@
         color: #d98b80;
       }
 
+      .sheet p {
+        margin: 0 0 10px;
+        line-height: 1.5;
+      }
+
+      .sheet .note {
+        font-size: 13px;
+        opacity: 0.6;
+      }
+
+      #donate-amounts {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      #donate-amounts button {
+        padding: 10px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--control);
+      }
+
+      #donate-amounts button.chosen {
+        background: var(--paper);
+        color: var(--ink);
+      }
+
+      #donate-custom {
+        width: 100%;
+        padding: 10px 12px;
+        box-sizing: border-box;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 8px;
+        background: none;
+        color: var(--on-void);
+      }
+
+      .wide {
+        width: 100%;
+        margin-top: 10px;
+        padding: 13px;
+        border: 0;
+        border-radius: 999px;
+      }
+
+      .wide.primary {
+        background: var(--paper);
+        color: var(--ink);
+      }
+
+      .detail {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .detail-label {
+        display: block;
+        font-size: 13px;
+        opacity: 0.6;
+      }
+
+      .detail-value {
+        display: block;
+        font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+        font-size: 19px;
+      }
+
+      .detail button {
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--control);
+      }
+
       /* Зміст і бібліотека — переліки. */
       .list {
         display: flex;
@@ -451,6 +533,11 @@
           </svg>
         </button>
         <span class="spacer"></span>
+        <button class="tool" id="tool-support" title="Підтримати проєкт">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 20s-8-5.5-8-11a4.2 4.2 0 0 1 8-1.8A4.2 4.2 0 0 1 20 9c0 5.5-8 11-8 11z" />
+          </svg>
+        </button>
         <button class="tool" id="tool-appearance" title="Оформлення">
           <svg viewBox="0 0 24 24">
             <path d="M4 7V5h10v2M9 5v14M7 19h4M14 13h6M17 10v9" />
@@ -546,6 +633,46 @@
               Повернути початкові
             </button>
             <button class="primary" id="appearance-done">Готово</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-support">
+        <div class="sheet">
+          <h2 id="donate-title">Подобається читати тут?</h2>
+          <p id="donate-body"></p>
+          <p class="note" id="donate-voluntary"></p>
+
+          <section>
+            <h3>Банка monobank</h3>
+            <div id="donate-amounts"></div>
+            <input
+              id="donate-custom"
+              type="number"
+              min="1"
+              placeholder="Інша сума, ₴"
+            />
+            <button class="wide primary" id="donate-go">
+              Задонатити через monobank
+            </button>
+            <p class="note" id="donate-jar-note"></p>
+          </section>
+
+          <section>
+            <h3>Або переказ на картку</h3>
+            <div class="detail">
+              <div>
+                <span class="detail-label">Номер картки</span>
+                <span class="detail-value" id="donate-card"></span>
+              </div>
+              <button id="donate-copy">Скопіювати</button>
+            </div>
+            <p class="note" id="donate-currency-note"></p>
+          </section>
+
+          <div class="sheet-actions">
+            <span></span>
+            <button id="donate-close">Не зараз</button>
           </div>
         </div>
       </div>

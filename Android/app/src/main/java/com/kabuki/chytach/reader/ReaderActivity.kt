@@ -30,6 +30,7 @@ import com.kabuki.chytach.ChytachApplication
 import com.kabuki.chytach.R
 import com.kabuki.chytach.library.BookLibrary
 import com.kabuki.chytach.library.BookRecord
+import com.kabuki.chytach.support.DonationSheet
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -133,6 +134,9 @@ class ReaderActivity : AppCompatActivity() {
         }
         findViewById<ImageButton>(R.id.tool_library).setOnClickListener { showLibrary() }
         findViewById<ImageButton>(R.id.tool_contents).setOnClickListener { showContents() }
+        findViewById<ImageButton>(R.id.tool_support).setOnClickListener {
+            DonationSheet.show(this, hasOpenBook = publication != null)
+        }
         findViewById<ImageButton>(R.id.tool_appearance).setOnClickListener { showAppearance() }
 
         findViewById<ImageButton>(R.id.jump_start).setOnClickListener { goToFraction(0.0) }

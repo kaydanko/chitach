@@ -16,6 +16,7 @@ import {
   textInsets,
 } from "./appearance.ts";
 import * as ui from "./ui.ts";
+import { openSupport } from "./donation.ts";
 
 const reader = document.getElementById("reader") as HTMLElement;
 
@@ -451,6 +452,7 @@ ui.setupChrome({
     });
     ui.showPanel("contents");
   },
+  openSupport: () => void openSupport(inTauri, book !== null).catch(fail),
   turn,
   goToStart: () => goToFraction(0),
   goToEnd: () => goToFraction(1),

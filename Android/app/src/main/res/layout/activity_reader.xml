@@ -49,6 +49,12 @@
             android:layout_weight="1" />
 
         <ImageButton
+            android:id="@+id/tool_support"
+            style="@style/ToolButton"
+            android:src="@drawable/ic_support"
+            android:contentDescription="@string/support" />
+
+        <ImageButton
             android:id="@+id/tool_appearance"
             style="@style/ToolButton"
             android:src="@drawable/ic_appearance"

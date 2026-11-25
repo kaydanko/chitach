@@ -25,6 +25,7 @@ export interface Handlers {
   goToStart: () => void;
   goToEnd: () => void;
   goToFraction: (fraction: number) => void;
+  openSupport: () => void;
   /** `fast` — для змін, яким досить нових налаштувань без перебудови. */
   appearanceChanged: (fast: boolean) => void;
 }
@@ -41,6 +42,7 @@ export function setupChrome(h: Handlers): void {
   byId("tool-library").onclick = () => h.openLibrary();
   byId("tool-open").onclick = () => h.openFile();
   byId("tool-contents").onclick = () => h.openContents();
+  byId("tool-support").onclick = () => h.openSupport();
   byId("tool-appearance").onclick = () => showPanel("appearance");
 
   byId("turn-back").onclick = () => h.turn(false);
@@ -82,7 +84,7 @@ export function setChromeVisible(visible: boolean): void {
 
 // MARK: — Панелі
 
-type PanelName = "appearance" | "contents" | "library";
+type PanelName = "appearance" | "contents" | "library" | "support";
 
 export function showPanel(name: PanelName): void {
   hidePanels();

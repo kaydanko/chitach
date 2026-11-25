@@ -107,6 +107,47 @@ fn load_book(path: &str, state: &BookState) -> Result<(), String> {
     Ok(())
 }
 
+/// Реквізити для внеску.
+///
+/// Ті самі, що у версіях для macOS та Android. Імені отримувача тут
+/// навмисно немає: воно потрібне лише для переказу за IBAN, а банка й
+/// картка приймають гроші без нього.
+const DONATION_JAR: &str = "https://send.monobank.ua/jar/bUjttUaxp";
+pub const DONATION_CARD: &str = "4874100027184244";
+
+/// Відкриває банку monobank у звичайному браузері.
+///
+/// Адресу складає Rust, а вебвʼю передає лише суму: приймати сюди готове
+/// посилання означало б дати книзі відкривати будь-що назовні.
+#[tauri::command]
+fn open_jar(amount: Option<u32>) -> Result<(), String> {
+    let url = match amount {
+        Some(value) if value > 0 => format!("{DONATION_JAR}?a={value}"),
+        _ => DONATION_JAR.to_string(),
+    };
+
+    let (program, args): (&str, Vec<&str>) = if cfg!(target_os = "windows") {
+        ("cmd", vec!["/C", "start", ""])
+    } else if cfg!(target_os = "macos") {
+        ("open", vec![])
+    } else {
+        ("xdg-open", vec![])
+    };
+
+    std::process::Command::new(program)
+        .args(args)
+        .arg(&url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Номер картки для внеску.
+#[tauri::command]
+fn donation_card() -> String {
+    DONATION_CARD.to_string()
+}
+
 /// Стійкий ідентифікатор книги замість шляху.
 ///
 /// Вебвʼю не має знати, де на диску лежать файли: розділи книги малюються
@@ -543,7 +584,9 @@ pub fn run() {
             open_last_book,
             list_books,
             open_library_book,
-            record_metadata
+            record_metadata,
+            open_jar,
+            donation_card
         ])
         .run(tauri::generate_context!())
         .expect("не вдалося запустити застосунок");
@@ -586,6 +629,15 @@ mod tests {
         assert_eq!(percent_decode("EPUB/text/%D1%80%D0%BE%D0%B7%D0%B4%D1%96%D0%BB.xhtml"),
                    "EPUB/text/розділ.xhtml");
         assert_eq!(percent_decode("EPUB/a%20b.css"), "EPUB/a b.css");
+    }
+
+    #[test]
+    fn реквізити_внеску_на_місці() {
+        // Не про значення, а про те, що вони не загубилися й не
+        // перетворилися на щось інше під час правок.
+        assert_eq!(DONATION_CARD.len(), 16);
+        assert!(DONATION_CARD.chars().all(|c| c.is_ascii_digit()));
+        assert!(DONATION_JAR.starts_with("https://send.monobank.ua/jar/"));
     }
 
     #[test]

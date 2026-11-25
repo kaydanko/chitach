@@ -20,8 +20,6 @@ enum DonationDetails {
     /// Гривнева картка. Доларова не годилася: monobank не дає до неї
     /// посилання для поповнення.
     static let cardNumber = "4874100027184244"
-    static let recipient = "ZOLOTAROV PAVLO"
-    static let iban = "UA463220010000026200377555652"
 
     /// Цифри групами по чотири — так номер читають і звіряють.
     static func grouped(_ value: String) -> String {
@@ -58,7 +56,7 @@ struct DonationView: View {
     @Environment(ReaderStore.self) private var store
     @Environment(\.openURL) private var openURL
 
-    private enum Field: Hashable { case card, recipient, iban }
+    private enum Field: Hashable { case card }
 
     /// Що щойно скопійовано. Одне поле на весь екран: галочка має стояти
     /// лише біля останнього скопійованого, а не біля всіх підряд.
@@ -255,22 +253,6 @@ struct DonationView: View {
                     field: .card,
                     monospaced: true
                 )
-                Divider().overlay(hairline)
-                detailRow(
-                    title: String(localized: "Отримувач", bundle: AppLanguage.bundle),
-                    value: DonationDetails.recipient,
-                    copyValue: DonationDetails.recipient,
-                    field: .recipient
-                )
-                Divider().overlay(hairline)
-                detailRow(
-                    title: "IBAN",
-                    value: DonationDetails.grouped(DonationDetails.iban),
-                    copyValue: DonationDetails.iban,
-                    field: .iban,
-                    monospaced: true,
-                    wraps: true
-                )
             }
             .background(surface, in: .rect(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hairline))
@@ -284,7 +266,7 @@ struct DonationView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "hryvniasign.circle")
                 .foregroundStyle(paper)
-            Text("Картка й рахунок гривневі (UAH). Якщо ви платите карткою в іншій валюті, ваш банк сконвертує суму за своїм курсом і може взяти комісію — варто глянути, скільки спишеться.")
+            Text("Картка гривнева (UAH). Якщо ви платите карткою в іншій валюті, ваш банк сконвертує суму за своїм курсом і може взяти комісію — варто глянути, скільки спишеться.")
                 .fixedSize(horizontal: false, vertical: true)
         }
         .font(.system(size: labelSize + 1))
@@ -319,8 +301,7 @@ struct DonationView: View {
         value: String,
         copyValue: String,
         field: Field,
-        monospaced: Bool = false,
-        wraps: Bool = false
+        monospaced: Bool = false
     ) -> some View {
         let isCopied = copiedField == field
 
@@ -336,12 +317,11 @@ struct DonationView: View {
                         design: monospaced ? .monospaced : .default
                     ))
                     .foregroundStyle(onVoid)
-                    // IBAN довший за рядок телефона навіть зменшеним — він
-                    // переноситься між групами цифр, а не обрізається.
-                    // Решта лишається в один рядок і за потреби дрібнішає.
-                    .lineLimit(wraps ? 2 : 1)
-                    .minimumScaleFactor(wraps ? 0.8 : 0.6)
-                    .fixedSize(horizontal: false, vertical: wraps)
+                    // Номер картки лишається в один рядок і за потреби
+                    // дрібнішає: розривати його між групами цифр гірше,
+                    // ніж зменшити.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .textSelection(.enabled)
             }
 

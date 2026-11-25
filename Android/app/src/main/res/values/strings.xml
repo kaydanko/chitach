@@ -38,4 +38,19 @@
     <string name="library_empty">Поки порожньо. Додайте книгу — вона лишиться тут.</string>
     <string name="add_book">Додати книгу</string>
     <string name="read_percent">прочитано %1$d%%</string>
+    <string name="donate_title">Подобається читати тут?</string>
+    <string name="donate_body">Chytach робить одна людина у вільний час. Без реклами, без підписок і без збору даних. Якщо застосунок став вам у пригоді, можна пригостити розробника кавою. Внески йдуть на час для нових функцій.</string>
+    <string name="donate_voluntary">Це повністю добровільно. Читалка лишиться такою ж і без внеску.</string>
+    <string name="donate_jar">Банка monobank</string>
+    <string name="donate_custom_amount">Інша сума, ₴</string>
+    <string name="donate_via_monobank">Задонатити через monobank</string>
+    <string name="donate_jar_note">Відкриється банка monobank — у застосунку банку або в браузері. Платити можна карткою будь-якого банку; сума в гривнях.</string>
+    <string name="donate_card">Або переказ на картку</string>
+    <string name="donate_card_number">Номер картки</string>
+    <string name="donate_copy">Скопіювати</string>
+    <string name="donate_copied">Скопійовано!</string>
+    <string name="donate_currency_note">Картка гривнева (UAH). Якщо ви платите карткою в іншій валюті, ваш банк сконвертує суму за своїм курсом і може взяти комісію — варто глянути, скільки спишеться.</string>
+    <string name="donate_not_now">Не зараз</string>
+    <string name="donate_back_to_reading">Повернутися до читання</string>
+    <string name="support">Підтримати проєкт</string>
 </resources>
