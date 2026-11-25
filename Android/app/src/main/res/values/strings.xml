@@ -6,4 +6,36 @@
     <string name="open_sample">Показати зразок</string>
     <string name="open_failed">Не вдалося відкрити книгу</string>
     <string name="book_unavailable">Доступ до книги втрачено. Відкрийте її знову.</string>
+
+    <string name="close_book">Закрити книгу</string>
+    <string name="library">Бібліотека</string>
+    <string name="contents">Зміст</string>
+    <string name="appearance">Оформлення</string>
+    <string name="jump_start">На початок книги</string>
+    <string name="jump_end">У кінець книги</string>
+
+    <string name="themes">Готові теми</string>
+    <string name="own_colors">Власні кольори</string>
+    <string name="paper_color">Тло сторінки</string>
+    <string name="ink_color">Колір тексту</string>
+    <string name="text_size">Розмір тексту</string>
+    <string name="font_size">Кегль</string>
+    <string name="page_margins">Поля сторінки</string>
+    <string name="left_margin">Ліве поле</string>
+    <string name="right_margin">Праве поле</string>
+    <string name="spread_gap">Проміжок між колонками</string>
+    <string name="reset_appearance">Повернути початкові</string>
+    <string name="done">Готово</string>
+
+    <string name="theme_sand">Пісочна</string>
+    <string name="theme_cream">Кремова</string>
+    <string name="theme_sepia">Сепія</string>
+    <string name="theme_grey">Сіра</string>
+    <string name="theme_night">Нічна</string>
+    <string name="theme_black">Чорна</string>
+
+    <string name="no_contents">У цій книзі змісту немає.</string>
+    <string name="library_empty">Поки порожньо. Додайте книгу — вона лишиться тут.</string>
+    <string name="add_book">Додати книгу</string>
+    <string name="read_percent">прочитано %1$d%%</string>
 </resources>

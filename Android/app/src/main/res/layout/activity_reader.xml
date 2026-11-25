@@ -1,77 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Підкладка з зерном лежить під вебвʼю навмисно: бічні поля на розвороті
-     робляться зсувом самого вебвʼю, і в смузі з краю видно саме її.
-     Та сама механіка, що в ReaderHostViewController у Swift-версії. -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/reader_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/void_background">
 
-    <View
-        android:id="@+id/grain_backdrop"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/navigator_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <!-- Початковий екран: видно, доки не відкрито жодної книги. -->
+    <!-- Шапка. Порядок кнопок той самий, що у Swift-версії. -->
     <LinearLayout
-        android:id="@+id/start_panel"
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="32dp"
-        android:background="@color/void_background"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:background="@color/toolbar"
         android:visibility="gone">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textColor="@color/on_void"
-            android:textSize="34sp" />
+        <ImageButton
+            android:id="@+id/tool_close"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_media_previous"
+            android:contentDescription="@string/close_book" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="40dp"
-            android:text="@string/start_hint"
-            android:textColor="@color/on_void"
-            android:alpha="0.6"
-            android:textSize="15sp" />
+        <ImageButton
+            android:id="@+id/tool_library"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:contentDescription="@string/library" />
 
-        <Button
-            android:id="@+id/open_book"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minWidth="220dp"
-            android:backgroundTint="@color/paper"
-            android:textColor="@color/ink"
-            android:text="@string/open_book" />
+        <ImageButton
+            android:id="@+id/tool_open"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_menu_add"
+            android:contentDescription="@string/open_book" />
 
-        <Button
-            android:id="@+id/open_sample"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/on_void"
-            android:alpha="0.7"
-            android:text="@string/open_sample" />
+        <ImageButton
+            android:id="@+id/tool_contents"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_menu_agenda"
+            android:contentDescription="@string/contents" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/tool_appearance"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_menu_manage"
+            android:contentDescription="@string/appearance" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/error_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:padding="32dp"
-        android:textColor="@color/on_void"
-        android:visibility="gone" />
-</FrameLayout>
+    <!-- Область читання. Підкладка з зерном лежить під вебвʼю навмисно:
+         бічні поля на розвороті робляться зсувом самого вебвʼю, і в смузі
+         з краю видно саме її. -->
+    <FrameLayout
+        android:id="@+id/middle"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <View
+            android:id="@+id/grain_backdrop"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/navigator_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Початковий екран: видно, доки не відкрито жодної книги. -->
+        <LinearLayout
+            android:id="@+id/start_panel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp"
+            android:background="@color/void_background"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textColor="@color/on_void"
+                android:textSize="34sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="40dp"
+                android:text="@string/start_hint"
+                android:textColor="@color/on_void"
+                android:alpha="0.6"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/open_book"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="220dp"
+                android:backgroundTint="@color/paper"
+                android:textColor="@color/ink"
+                android:text="@string/open_book" />
+
+            <Button
+                android:id="@+id/open_sample"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/on_void"
+                android:alpha="0.7"
+                android:text="@string/open_sample" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/error_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:padding="32dp"
+            android:textColor="@color/on_void"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Підвал: стрибки на краї книги й повзунок поступу. -->
+    <LinearLayout
+        android:id="@+id/footer"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="@color/footer"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/jump_start"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_media_rew"
+            android:contentDescription="@string/jump_start" />
+
+        <SeekBar
+            android:id="@+id/progress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="1000" />
+
+        <ImageButton
+            android:id="@+id/jump_end"
+            style="@style/ToolButton"
+            android:src="@android:drawable/ic_media_ff"
+            android:contentDescription="@string/jump_end" />
+
+        <TextView
+            android:id="@+id/position_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="48dp"
+            android:gravity="end"
+            android:textColor="@color/on_void"
+            android:alpha="0.6"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

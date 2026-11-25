@@ -5,4 +5,36 @@
     <string name="open_sample">Show the sample</string>
     <string name="open_failed">Could not open the book</string>
     <string name="book_unavailable">Access to the book was lost. Open it again.</string>
+
+    <string name="close_book">Close the book</string>
+    <string name="library">Library</string>
+    <string name="contents">Contents</string>
+    <string name="appearance">Appearance</string>
+    <string name="jump_start">Go to the beginning</string>
+    <string name="jump_end">Go to the end</string>
+
+    <string name="themes">Themes</string>
+    <string name="own_colors">Custom colours</string>
+    <string name="paper_color">Page background</string>
+    <string name="ink_color">Text colour</string>
+    <string name="text_size">Text size</string>
+    <string name="font_size">Size</string>
+    <string name="page_margins">Page margins</string>
+    <string name="left_margin">Left margin</string>
+    <string name="right_margin">Right margin</string>
+    <string name="spread_gap">Gap between columns</string>
+    <string name="reset_appearance">Restore defaults</string>
+    <string name="done">Done</string>
+
+    <string name="theme_sand">Sand</string>
+    <string name="theme_cream">Cream</string>
+    <string name="theme_sepia">Sepia</string>
+    <string name="theme_grey">Grey</string>
+    <string name="theme_night">Night</string>
+    <string name="theme_black">Black</string>
+
+    <string name="no_contents">This book has no table of contents.</string>
+    <string name="library_empty">Empty so far. Add a book and it stays here.</string>
+    <string name="add_book">Add a book</string>
+    <string name="read_percent">%1$d%% read</string>
 </resources>

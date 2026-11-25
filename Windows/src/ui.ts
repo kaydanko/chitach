@@ -148,7 +148,7 @@ export function fillContents(
 // MARK: — Бібліотека
 
 export interface LibraryEntry {
-  path: string;
+  id: string;
   title: string;
   author?: string;
   progress?: number;
@@ -156,8 +156,8 @@ export interface LibraryEntry {
 
 export function fillLibrary(
   books: LibraryEntry[],
-  currentPath: string | undefined,
-  onPick: (path: string) => void,
+  currentId: string | undefined,
+  onPick: (id: string) => void,
 ): void {
   const list = byId("library-list");
   list.replaceChildren();
@@ -173,7 +173,7 @@ export function fillLibrary(
   for (const book of books) {
     const button = document.createElement("button");
     button.type = "button";
-    if (book.path === currentPath) button.classList.add("current");
+    if (book.id === currentId) button.classList.add("current");
 
     const title = document.createElement("span");
     title.textContent = book.title;
@@ -191,7 +191,7 @@ export function fillLibrary(
       button.append(meta);
     }
 
-    button.onclick = () => onPick(book.path);
+    button.onclick = () => onPick(book.id);
     list.append(button);
   }
 }

@@ -107,6 +107,25 @@ fn load_book(path: &str, state: &BookState) -> Result<(), String> {
     Ok(())
 }
 
+/// Стійкий ідентифікатор книги замість шляху.
+///
+/// Вебвʼю не має знати, де на диску лежать файли: розділи книги малюються
+/// в iframe зі скриптами, тож перелік шляхів означав би, що будь-яка
+/// книга вичитує будову вашого диска — імена тек, назву облікового
+/// запису. Для читалки ж достатньо чогось, що стабільно вказує на ту саму
+/// книгу між запусками.
+///
+/// FNV-1a, а не `DefaultHasher`: останній не обіцяє однакового результату
+/// між версіями Rust, а ідентифікатор мусить пережити оновлення.
+fn book_id(path: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in path.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x1000_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
 /// Запис про книгу в бібліотеці.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Default)]
 struct BookRecord {
@@ -171,12 +190,29 @@ fn note_opened(app: &tauri::AppHandle, path: &str) {
     write_library(app, &books);
 }
 
+/// Книга такою, якою її бачить вебвʼю: без шляху.
+#[derive(serde::Serialize)]
+struct BookSummary {
+    id: String,
+    title: String,
+    author: String,
+    progress: f64,
+}
+
 /// Перелік книг, недавно читані вгорі.
 #[tauri::command]
-fn list_books(app: tauri::AppHandle) -> Vec<BookRecord> {
+fn list_books(app: tauri::AppHandle) -> Vec<BookSummary> {
     let mut books = read_library(&app);
     books.sort_by(|a, b| b.opened_at.cmp(&a.opened_at));
     books
+        .into_iter()
+        .map(|book| BookSummary {
+            id: book_id(&book.path),
+            title: book.title,
+            author: book.author,
+            progress: book.progress,
+        })
+        .collect()
 }
 
 /// Відкриває книгу з бібліотеки за її місцем у переліку.
@@ -207,7 +243,7 @@ fn open_library_book(
 
     remember(&app, &path);
     note_opened(&app, &path);
-    Ok(Some(path))
+    Ok(Some(book_id(&path)))
 }
 
 /// Доповнює запис про відкриту книгу тим, що вичитав із неї вебвʼю.
@@ -280,7 +316,7 @@ fn pick_book(app: tauri::AppHandle, state: State<'_, BookState>) -> Result<Optio
     load_book(&path, &state)?;
     remember(&app, &path);
     note_opened(&app, &path);
-    Ok(Some(path))
+    Ok(Some(book_id(&path)))
 }
 
 /// Відкриває книгу, з якою застосунок запустили.
@@ -296,7 +332,7 @@ fn open_startup_book(
     load_book(&path, &state)?;
     remember(&app, &path);
     note_opened(&app, &path);
-    Ok(Some(path))
+    Ok(Some(book_id(&path)))
 }
 
 /// Відкриває книгу, на якій зупинилися минулого разу.
@@ -320,7 +356,7 @@ fn open_last_book(
         forget(&app);
         return Ok(None);
     }
-    Ok(Some(path))
+    Ok(Some(book_id(&path)))
 }
 
 /// Походження сторінки застосунку. На Windows вебвʼю працює за
@@ -490,7 +526,7 @@ pub fn run() {
                 remember(app, &path);
                 note_opened(app, &path);
                 use tauri::Emitter;
-                let _ = app.emit("book-opened", path);
+                let _ = app.emit("book-opened", book_id(&path));
             }
         })
         .plugin(tauri_plugin_log::Builder::default().build())

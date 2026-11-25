@@ -32,7 +32,14 @@ const SAMPLE = "__sample__";
 
 /** Відкрита книга з усім, що потрібно, щоб перемалювати її без читання з диска. */
 interface OpenBook {
-  path: string;
+  /**
+   * Стійкий ідентифікатор від Rust, а не шлях до файлу.
+   *
+   * Вебвʼю не знає, де книга лежить: розділи малюються в iframe зі
+   * скриптами, тож шлях у ньому означав би, що книга вичитує будову
+   * диска. Для памʼяті про місце читання ідентифікатора досить.
+   */
+  id: string;
   publication: Publication;
   baseURL: string;
   positions: Locator[];
@@ -114,7 +121,7 @@ async function bookBytes(): Promise<{ bytes: Uint8Array; baseURL: string }> {
 // MARK: — Відкриття
 
 /** Розбирає книгу, яку Rust уже тримає розпакованою, і малює її. */
-async function render(path: string): Promise<void> {
+async function render(id: string): Promise<void> {
   ui.hideError();
 
   const { bytes, baseURL } = await bookBytes();
@@ -147,10 +154,10 @@ async function render(path: string): Promise<void> {
     )
     .filter((locator): locator is Locator => locator !== undefined);
 
-  book = { path, publication, baseURL, positions };
+  book = { id, publication, baseURL, positions };
 
   await loadGrain();
-  await mount(savedLocator(path) ?? positions[0]);
+  await mount(savedLocator(id) ?? positions[0]);
 
   ui.setStartVisible(false);
   ui.setChromeVisible(true);
@@ -179,7 +186,7 @@ async function mount(at: Locator | undefined): Promise<void> {
       frameLoaded: () => {},
       positionChanged: (locator) => {
         if (!book) return;
-        saveLocator(book.path, locator);
+        saveLocator(book.id, locator);
         updateProgress(locator);
       },
       viewportChanged: () => {},
@@ -362,8 +369,8 @@ function closeBook(): void {
 async function openFile(): Promise<void> {
   if (!inTauri) return;
   try {
-    const path = await invoke<string | null>("pick_book");
-    if (path !== null) await render(path);
+    const id = await invoke<string | null>("pick_book");
+    if (id !== null) await render(id);
   } catch (error) {
     fail(error);
   }
@@ -382,19 +389,19 @@ async function openLibrary(): Promise<void> {
   }
 
   const books = await invoke<
-    Array<{ path: string; title: string; author: string; progress: number }>
+    Array<{ id: string; title: string; author: string; progress: number }>
   >("list_books");
 
   ui.fillLibrary(
     books.map((b) => ({
-      path: b.path,
+      id: b.id,
       title: b.title,
       author: b.author || undefined,
       progress: b.progress,
     })),
-    book?.path,
-    (path) => {
-      const index = books.findIndex((b) => b.path === path);
+    book?.id,
+    (id) => {
+      const index = books.findIndex((b) => b.id === id);
       if (index < 0) return;
       ui.hidePanels();
       invoke<string | null>("open_library_book", { index })
@@ -409,8 +416,8 @@ async function openLibrary(): Promise<void> {
  * Книга, яку не вдалося відкрити, більше не вважається останньою: інакше
  * застосунок відкривався б тією самою помилкою щоразу.
  */
-function fail(error: unknown, path?: string): void {
-  if (path) forgetBook(path);
+function fail(error: unknown, id?: string): void {
+  if (id) forgetBook(id);
   ui.setChromeVisible(false);
   ui.setStartVisible(true);
   ui.showError(
@@ -555,15 +562,15 @@ async function start(): Promise<void> {
 
   // Подвійне клацання на книзі в Провіднику передає шлях аргументом;
   // інакше повертаємося до тієї, на якій зупинилися.
-  const path =
+  const id =
     (await invoke<string | null>("open_startup_book")) ??
     (await invoke<string | null>("open_last_book"));
 
-  if (path === null) {
+  if (id === null) {
     ui.setStartVisible(true);
     return;
   }
-  await render(path);
+  await render(id);
 }
 
 start().catch((error) => fail(error));
