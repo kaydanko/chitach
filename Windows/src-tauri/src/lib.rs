@@ -7,6 +7,9 @@
 // та шрифти всередині розділу вантажаться звичайним запитом, а не через
 // наш фетчер.
 
+mod epub;
+mod formats;
+
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
 use std::sync::Mutex;
@@ -17,9 +20,9 @@ use tauri_plugin_dialog::DialogExt;
 
 /// Розпакована книга: шлях усередині архіву → байти.
 #[derive(Default)]
-struct OpenBook {
+pub(crate) struct OpenBook {
     raw: Vec<u8>,
-    entries: HashMap<String, Vec<u8>>,
+    pub(crate) entries: HashMap<String, Vec<u8>>,
 }
 
 #[derive(Default)]
@@ -36,7 +39,7 @@ struct BookState(Mutex<OpenBook>);
 const MAX_ENTRY_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
 
-fn unpack(raw: Vec<u8>) -> Result<OpenBook, String> {
+pub(crate) fn unpack(raw: Vec<u8>) -> Result<OpenBook, String> {
     let mut archive =
         zip::ZipArchive::new(Cursor::new(raw.clone())).map_err(|e| e.to_string())?;
 
@@ -97,6 +100,26 @@ fn load_book(path: &str, state: &BookState) -> Result<(), String> {
     }
 
     let raw = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+
+    // TXT, Markdown і решта не-EPUB форматів стають EPUB тут, на боці
+    // Rust: далі їх розбирає той самий код, що й звичайну книгу.
+    let file = std::path::Path::new(path);
+    let extension = file
+        .extension()
+        .map(|e| e.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    let raw = match formats::converter_for(&extension) {
+        Some(converter) => {
+            let title = file
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Книга".to_string());
+            converter.convert(&raw, &title)?
+        }
+        None => raw,
+    };
+
     let book = unpack(raw)?;
     log::info!(
         "відкрито {path}: {} байтів, {} файлів",
@@ -158,7 +181,7 @@ fn donation_card() -> String {
 ///
 /// FNV-1a, а не `DefaultHasher`: останній не обіцяє однакового результату
 /// між версіями Rust, а ідентифікатор мусить пережити оновлення.
-fn book_id(path: &str) -> String {
+pub(crate) fn book_id(path: &str) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     for byte in path.as_bytes() {
         hash ^= *byte as u64;
@@ -342,7 +365,7 @@ fn pick_book(app: tauri::AppHandle, state: State<'_, BookState>) -> Result<Optio
     let Some(picked) = app
         .dialog()
         .file()
-        .add_filter("Книги", &["epub"])
+        .add_filter("Книги", &["epub", "txt", "text", "md", "markdown"])
         .blocking_pick_file()
     else {
         return Ok(None);

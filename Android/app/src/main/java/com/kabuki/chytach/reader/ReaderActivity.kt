@@ -259,15 +259,9 @@ class ReaderActivity : AppCompatActivity() {
     private fun openBook(book: Uri) {
         hideError()
 
-        val url = book.toAbsoluteUrl()
-        if (url == null) {
-            showError(getString(R.string.open_failed), book)
-            return
-        }
-
         lifecycleScope.launch {
             val app = application as ChytachApplication
-            app.bookOpener.open(url)
+            app.bookOpener.open(book)
                 .onSuccess { opened ->
                     publication?.close()
                     publication = opened
