@@ -29,6 +29,34 @@
                 <data android:mimeType="application/epub+zip" />
             </intent-filter>
 
+            <!-- Решта форматів, які читалка вміє. Типи для FB2 не
+                 стандартизовані, тож ловимо і за типом, і за розширенням. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="application/rtf" />
+                <data android:mimeType="text/rtf" />
+                <data android:mimeType="application/x-fictionbook+xml" />
+                <data android:mimeType="application/x-fictionbook" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.fb2" />
+                <data android:pathPattern=".*\\.fb2z" />
+                <data android:pathPattern=".*\\.rtf" />
+                <data android:pathPattern=".*\\.md" />
+            </intent-filter>
+
             <!-- Чимало файлових провайдерів віддають EPUB без типу або як
                  потік байтів. Без цього фільтра такі книги Chytach у
                  переліку «Відкрити за допомогою» просто не показував би. -->

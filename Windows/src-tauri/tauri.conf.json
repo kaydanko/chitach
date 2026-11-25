@@ -50,6 +50,51 @@
         "description": "Електронна книга",
         "role": "Viewer",
         "mimeType": "application/epub+zip"
+      },
+      {
+        "ext": [
+          "fb2"
+        ],
+        "name": "FB2",
+        "description": "Електронна книга FictionBook",
+        "role": "Viewer",
+        "mimeType": "application/x-fictionbook+xml"
+      },
+      {
+        "ext": [
+          "fb2z"
+        ],
+        "name": "FB2ZIP",
+        "description": "Стиснена книга FictionBook",
+        "role": "Viewer",
+        "mimeType": "application/x-zip-compressed-fb2"
+      },
+      {
+        "ext": [
+          "rtf"
+        ],
+        "name": "RTF",
+        "description": "Текст із розміткою",
+        "role": "Viewer",
+        "mimeType": "application/rtf"
+      },
+      {
+        "ext": [
+          "txt"
+        ],
+        "name": "TXT",
+        "description": "Звичайний текст",
+        "role": "Viewer",
+        "mimeType": "text/plain"
+      },
+      {
+        "ext": [
+          "md"
+        ],
+        "name": "Markdown",
+        "description": "Текст у Markdown",
+        "role": "Viewer",
+        "mimeType": "text/markdown"
       }
     ],
     "windows": {
