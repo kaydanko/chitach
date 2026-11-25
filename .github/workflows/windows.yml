@@ -44,7 +44,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm exec tauri build
+      # --verbose: без нього Tauri ковтає вивід пакувальника WiX,
+      # і з журналу не видно, чому саме він упав.
+      - run: pnpm exec tauri build --verbose
 
       - uses: actions/upload-artifact@v4
         with:
