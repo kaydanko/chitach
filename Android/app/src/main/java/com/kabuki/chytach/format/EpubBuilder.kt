@@ -54,55 +54,55 @@ object EpubBuilder {
      * Readium CSS задає виключку й відступи теж через нього.
      */
     private val STRUCTURAL_CSS = """
-        .poem { margin: 1.1em 0; }
-        .stanza { margin-bottom: 1em; }
-        .stanza:last-child { margin-bottom: 0; }
-        .verse {
-          margin: 0 !important;
-          line-height: 1.45;
+        |.poem { margin: 1.1em 0; }
+        |.stanza { margin-bottom: 1em; }
+        |.stanza:last-child { margin-bottom: 0; }
+        |.verse {
+        |  margin: 0 !important;
+        |  line-height: 1.45;
         }
-        .epigraph {
-          margin: 1.2em 0 1.4em 12%;
-          font-style: italic;
-          border: 0;
-          padding: 0;
+        |.epigraph {
+        |  margin: 1.2em 0 1.4em 12%;
+        |  font-style: italic;
+        |  border: 0;
+        |  padding: 0;
         }
-        .cite { margin: 1.1em 0 1.1em 6%; }
-        .text-author { font-style: italic; margin-top: 0.4em; }
-        .subtitle { font-weight: 600; margin: 1.1em 0 0.7em; }
-        .annotation { margin: 0 0 1.4em; font-style: italic; }
-        .empty-line { margin: 0 !important; }
-        .note { text-decoration: none; }
-        .backref { font-size: 0.85em; margin: 0.3em 0 1em !important; }
-        img { max-width: 100%; height: auto; }
-    """.trimIndent()
+        |.cite { margin: 1.1em 0 1.1em 6%; }
+        |.text-author { font-style: italic; margin-top: 0.4em; }
+        |.subtitle { font-weight: 600; margin: 1.1em 0 0.7em; }
+        |.annotation { margin: 0 0 1.4em; font-style: italic; }
+        |.empty-line { margin: 0 !important; }
+        |.note { text-decoration: none; }
+        |.backref { font-size: 0.85em; margin: 0.3em 0 1em !important; }
+        |img { max-width: 100%; height: auto; }
+    """.trimMargin()
 
     private fun containerXML(): String = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-          <rootfiles>
-            <rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/>
-          </rootfiles>
-        </container>
-    """.trimIndent()
+        |<?xml version="1.0" encoding="UTF-8"?>
+        |<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+        |  <rootfiles>
+        |    <rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/>
+        |  </rootfiles>
+        |</container>
+    """.trimMargin()
 
     private fun chapterXHTML(chapter: Chapter, language: String, fallbackTitle: String): String {
         val title = escape(chapter.title ?: fallbackTitle)
         val lang = escape(language)
         return """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE html>
-            <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="$lang" lang="$lang">
-            <head>
-              <meta charset="UTF-8"/>
-              <title>$title</title>
-              <style>$STRUCTURAL_CSS</style>
-            </head>
-            <body>
-            ${chapter.body}
-            </body>
-            </html>
-        """.trimIndent()
+            |<?xml version="1.0" encoding="UTF-8"?>
+            |<!DOCTYPE html>
+            |<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="$lang" lang="$lang">
+            |<head>
+            |  <meta charset="UTF-8"/>
+            |  <title>$title</title>
+            |  <style>$STRUCTURAL_CSS</style>
+            |</head>
+            |<body>
+            |${chapter.body}
+            |</body>
+            |</html>
+        """.trimMargin()
     }
 
     private fun navXHTML(chapters: List<Chapter>, metadata: Metadata): String {
@@ -113,23 +113,23 @@ object EpubBuilder {
 
         val lang = escape(metadata.language)
         return """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE html>
-            <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="$lang" lang="$lang">
-            <head>
-              <meta charset="UTF-8"/>
-              <title>${escape(metadata.title)}</title>
-            </head>
-            <body>
-              <nav epub:type="toc" id="toc">
-                <h1>Зміст</h1>
-                <ol>
-            $items
-                </ol>
-              </nav>
-            </body>
-            </html>
-        """.trimIndent()
+            |<?xml version="1.0" encoding="UTF-8"?>
+            |<!DOCTYPE html>
+            |<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="$lang" lang="$lang">
+            |<head>
+            |  <meta charset="UTF-8"/>
+            |  <title>${escape(metadata.title)}</title>
+            |</head>
+            |<body>
+            |  <nav epub:type="toc" id="toc">
+            |    <h1>Зміст</h1>
+            |    <ol>
+            |$items
+            |    </ol>
+            |  </nav>
+            |</body>
+            |</html>
+        """.trimMargin()
     }
 
     private fun packageOPF(
@@ -151,24 +151,24 @@ object EpubBuilder {
         }
 
         return """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
-              <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-                <dc:identifier id="pub-id">${escape(metadata.identifier)}</dc:identifier>
-                <dc:title>${escape(metadata.title)}</dc:title>
-                <dc:language>${escape(metadata.language)}</dc:language>
-            $authors
-              </metadata>
-              <manifest>
-                <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-            $chapterItems
-            $resourceItems
-              </manifest>
-              <spine>
-            $spine
-              </spine>
-            </package>
-        """.trimIndent()
+            |<?xml version="1.0" encoding="UTF-8"?>
+            |<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+            |  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+            |    <dc:identifier id="pub-id">${escape(metadata.identifier)}</dc:identifier>
+            |    <dc:title>${escape(metadata.title)}</dc:title>
+            |    <dc:language>${escape(metadata.language)}</dc:language>
+            |$authors
+            |  </metadata>
+            |  <manifest>
+            |    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+            |$chapterItems
+            |$resourceItems
+            |  </manifest>
+            |  <spine>
+            |$spine
+            |  </spine>
+            |</package>
+        """.trimMargin()
     }
 
     /** Збирає EPUB у памʼяті. */

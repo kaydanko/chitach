@@ -365,7 +365,7 @@ fn pick_book(app: tauri::AppHandle, state: State<'_, BookState>) -> Result<Optio
     let Some(picked) = app
         .dialog()
         .file()
-        .add_filter("Книги", &["epub", "txt", "text", "md", "markdown"])
+        .add_filter("Книги", &["epub", "txt", "text", "md", "markdown", "fb2", "fb2z", "zip"])
         .blocking_pick_file()
     else {
         return Ok(None);
