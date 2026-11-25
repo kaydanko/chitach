@@ -117,6 +117,29 @@
                 android:textColor="@color/ink"
                 android:text="@string/open_book" />
 
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="28dp">
+
+                <Button
+                    android:id="@+id/language_uk"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/on_void"
+                    android:text="@string/language_uk" />
+
+                <Button
+                    android:id="@+id/language_en"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/on_void"
+                    android:text="@string/language_en" />
+            </LinearLayout>
+
             <Button
                 android:id="@+id/open_sample"
                 style="?android:attr/borderlessButtonStyle"

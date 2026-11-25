@@ -53,4 +53,6 @@
     <string name="donate_not_now">Не зараз</string>
     <string name="donate_back_to_reading">Повернутися до читання</string>
     <string name="support">Підтримати проєкт</string>
+    <string name="language_uk">Українська</string>
+    <string name="language_en">English</string>
 </resources>

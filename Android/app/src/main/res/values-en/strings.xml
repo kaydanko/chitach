@@ -52,4 +52,6 @@
     <string name="donate_not_now">Not now</string>
     <string name="donate_back_to_reading">Back to reading</string>
     <string name="support">Support the project</string>
+    <string name="language_uk">Українська</string>
+    <string name="language_en">English</string>
 </resources>

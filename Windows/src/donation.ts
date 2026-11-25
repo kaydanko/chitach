@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { hidePanels, showPanel } from "./ui.ts";
+import { t } from "./strings.ts";
 
 /**
  * Екран підтримки проєкту.
@@ -14,24 +15,6 @@ import { hidePanels, showPanel } from "./ui.ts";
  */
 
 const AMOUNTS = [100, 200, 500];
-
-const TEXT = {
-  body:
-    "Chytach робить одна людина у вільний час. Без реклами, без підписок і " +
-    "без збору даних. Якщо застосунок став вам у пригоді, можна пригостити " +
-    "розробника кавою. Внески йдуть на час для нових функцій.",
-  voluntary:
-    "Це повністю добровільно. Читалка лишиться такою ж і без внеску.",
-  jarNote:
-    "Відкриється банка monobank — у застосунку банку або в браузері. " +
-    "Платити можна карткою будь-якого банку; сума в гривнях.",
-  currencyNote:
-    "Картка гривнева (UAH). Якщо ви платите карткою в іншій валюті, ваш " +
-    "банк сконвертує суму за своїм курсом і може взяти комісію — варто " +
-    "глянути, скільки спишеться.",
-  copy: "Скопіювати",
-  copied: "Скопійовано!",
-};
 
 const byId = <T extends HTMLElement>(id: string): T =>
   document.getElementById(id) as T;
@@ -56,11 +39,6 @@ function highlight(): void {
 async function build(inTauri: boolean): Promise<void> {
   if (ready) return;
   ready = true;
-
-  byId("donate-body").textContent = TEXT.body;
-  byId("donate-voluntary").textContent = TEXT.voluntary;
-  byId("donate-jar-note").textContent = TEXT.jarNote;
-  byId("donate-currency-note").textContent = TEXT.currencyNote;
 
   const amounts = byId("donate-amounts");
   amounts.replaceChildren();
@@ -97,8 +75,8 @@ async function build(inTauri: boolean): Promise<void> {
   copy.onclick = async () => {
     try {
       await window.navigator.clipboard.writeText(card);
-      copy.textContent = TEXT.copied;
-      window.setTimeout(() => (copy.textContent = TEXT.copy), 2000);
+      copy.textContent = t("donate.copied");
+      window.setTimeout(() => (copy.textContent = t("donate.copy")), 2000);
     } catch {
       // Буфер обміну може бути недоступний — номер і так видно й можна
       // виділити мишею.
@@ -111,7 +89,7 @@ async function build(inTauri: boolean): Promise<void> {
 export async function openSupport(inTauri: boolean, hasOpenBook: boolean): Promise<void> {
   await build(inTauri);
   byId("donate-close").textContent = hasOpenBook
-    ? "Повернутися до читання"
-    : "Не зараз";
+    ? t("donate.backToReading")
+    : t("donate.notNow");
   showPanel("support");
 }

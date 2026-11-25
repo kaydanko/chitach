@@ -101,6 +101,10 @@ class ReaderActivity : AppCompatActivity() {
             openSample()
         }
 
+        // Мова інтерфейсу незалежна від системної — як на macOS.
+        findViewById<Button>(R.id.language_uk).setOnClickListener { setLanguage("uk") }
+        findViewById<Button>(R.id.language_en).setOnClickListener { setLanguage("en") }
+
         wireChrome()
 
         val book = bookFromIntent(intent) ?: library.lastBook
@@ -117,6 +121,18 @@ class ReaderActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         publication?.close()
+    }
+
+    /**
+     * Міняє мову інтерфейсу.
+     *
+     * `AppCompatDelegate` сам перезапускає активність із новими рядками й
+     * памʼятає вибір між запусками, тож своє сховище тут зайве.
+     */
+    private fun setLanguage(tag: String) {
+        androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
+            androidx.core.os.LocaleListCompat.forLanguageTags(tag)
+        )
     }
 
     // MARK: — Хром

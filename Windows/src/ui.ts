@@ -1,3 +1,4 @@
+import { t } from "./strings.ts";
 import {
   appearance,
   clampFontSize,
@@ -127,7 +128,7 @@ export function fillContents(
 
   if (entries.length === 0) {
     const empty = document.createElement("p");
-    empty.textContent = "У цій книзі змісту немає.";
+    empty.textContent = t("contents.empty");
     empty.style.opacity = "0.5";
     list.append(empty);
     return;
@@ -166,7 +167,7 @@ export function fillLibrary(
 
   if (books.length === 0) {
     const empty = document.createElement("p");
-    empty.textContent = "Поки порожньо. Додайте книгу — вона лишиться тут.";
+    empty.textContent = t("library.empty");
     empty.style.opacity = "0.5";
     list.append(empty);
     return;
@@ -184,7 +185,7 @@ export function fillLibrary(
     const parts: string[] = [];
     if (book.author) parts.push(book.author);
     if (typeof book.progress === "number" && book.progress > 0) {
-      parts.push(`прочитано ${Math.round(book.progress * 100)}%`);
+      parts.push(t("library.read", Math.round(book.progress * 100)));
     }
     if (parts.length > 0) {
       const meta = document.createElement("span");
@@ -258,7 +259,7 @@ function buildAppearancePanel(): void {
     button.type = "button";
     button.className = "theme";
     button.dataset.theme = theme.id;
-    button.textContent = theme.name;
+    button.textContent = t(`theme.${theme.id}`);
     button.style.background = theme.paper;
     button.style.color = theme.ink;
     button.onclick = () => {
@@ -347,6 +348,7 @@ export function refreshAppearancePanel(): void {
 
   for (const chip of document.querySelectorAll<HTMLElement>(".theme")) {
     const theme = THEMES.find((t) => t.id === chip.dataset.theme);
+    if (theme) chip.textContent = t(`theme.${theme.id}`);
     chip.classList.toggle(
       "current",
       theme?.paper === appearance.paperColor && theme.ink === appearance.inkColor,

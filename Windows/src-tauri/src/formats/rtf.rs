@@ -286,7 +286,11 @@ fn parse(data: &[u8]) -> (Vec<Paragraph>, Vec<Picture>, String) {
                             if in_title {
                                 title.push(ch);
                             } else if skip_depth.is_none() {
-                                text.push(ch);
+                                // Екрануємо так само, як звичайні байти:
+                                // кутову дужку в RTF можна записати через
+                                // \'3c, і без цього вона потрапила б у
+                                // розмітку як розмітка.
+                                text.push_str(&epub::escape(&ch.to_string()));
                             }
                         }
                     }
@@ -354,7 +358,7 @@ fn parse(data: &[u8]) -> (Vec<Paragraph>, Vec<Picture>, String) {
                                     };
                                     if skip_depth.is_none() {
                                         if let Some(ch) = char::from_u32(code) {
-                                            text.push(ch);
+                                            text.push_str(&epub::escape(&ch.to_string()));
                                         }
                                     }
                                     // Далі йде запасний запис того самого
@@ -555,6 +559,19 @@ mod tests {
         let all: String = paragraphs.iter().map(|p| p.html.clone()).collect();
         assert!(!all.contains("Arial"), "у тексті лишилася таблиця шрифтів: {all}");
         assert!(all.contains("Tekst"), "вийшло: {all}");
+    }
+
+    #[test]
+    fn розмітка_з_книги_екранується() {
+        // `\'3c` — це «<». Без екранування воно стало б тегом.
+        let rtf = format!(
+            "{{{0}rtf1{0}ansi {0}'3cscript{0}'3e{0}par }}",
+            '\\'
+        );
+        let (paragraphs, _, _) = parse(rtf.as_bytes());
+        let all: String = paragraphs.iter().map(|p| p.html.clone()).collect();
+        assert!(!all.contains("<script"), "розмітка пройшла: {all}");
+        assert!(all.contains("&lt;script"), "вийшло: {all}");
     }
 
     #[test]

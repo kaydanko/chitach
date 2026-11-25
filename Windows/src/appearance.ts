@@ -9,18 +9,13 @@ export const DEFAULT_PAPER = "#CDC28B";
 export const DEFAULT_INK = "#38331C";
 
 /** Готові теми. Значення ті самі, що в Swift-версії. */
-export const THEMES: ReadonlyArray<{
-  id: string;
-  name: string;
-  paper: string;
-  ink: string;
-}> = [
-  { id: "sand", name: "Пісочна", paper: "#CDC28B", ink: "#38331C" },
-  { id: "cream", name: "Кремова", paper: "#EEE6D3", ink: "#2B2419" },
-  { id: "sepia", name: "Сепія", paper: "#E4D5B7", ink: "#4A3826" },
-  { id: "grey", name: "Сіра", paper: "#C9C9C4", ink: "#242424" },
-  { id: "night", name: "Нічна", paper: "#2A2A28", ink: "#C4BFAE" },
-  { id: "black", name: "Чорна", paper: "#000000", ink: "#9A9A92" },
+export const THEMES: ReadonlyArray<{ id: string; paper: string; ink: string }> = [
+  { id: "sand", paper: "#CDC28B", ink: "#38331C" },
+  { id: "cream", paper: "#EEE6D3", ink: "#2B2419" },
+  { id: "sepia", paper: "#E4D5B7", ink: "#4A3826" },
+  { id: "grey", paper: "#C9C9C4", ink: "#242424" },
+  { id: "night", paper: "#2A2A28", ink: "#C4BFAE" },
+  { id: "black", paper: "#000000", ink: "#9A9A92" },
 ];
 
 export const appearance = {

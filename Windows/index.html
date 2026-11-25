@@ -495,6 +495,21 @@
         text-transform: uppercase;
       }
 
+      #languages {
+        margin-top: 26px;
+        display: flex;
+        gap: 10px;
+      }
+
+      #languages button {
+        padding: 8px 12px;
+        border: 0;
+        background: none;
+        color: var(--on-void);
+        opacity: 0.7;
+        font-size: 14px;
+      }
+
       #error {
         position: absolute;
         inset: 0;
@@ -514,31 +529,31 @@
   <body>
     <div id="stage">
       <div id="toolbar">
-        <button class="tool" id="tool-close" title="Закрити книгу">
+        <button class="tool" id="tool-close" data-i18n-title="tool.close">
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
         </button>
-        <button class="tool" id="tool-library" title="Бібліотека">
+        <button class="tool" id="tool-library" data-i18n-title="tool.library">
           <svg viewBox="0 0 24 24">
             <path d="M5 4v16M10 4v16M15.5 5l4 15" />
           </svg>
         </button>
-        <button class="tool" id="tool-open" title="Відкрити файл">
+        <button class="tool" id="tool-open" data-i18n-title="tool.open">
           <svg viewBox="0 0 24 24">
             <path d="M3 7h6l2 2h10v10H3z" />
           </svg>
         </button>
-        <button class="tool" id="tool-contents" title="Зміст">
+        <button class="tool" id="tool-contents" data-i18n-title="tool.contents">
           <svg viewBox="0 0 24 24">
             <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
           </svg>
         </button>
         <span class="spacer"></span>
-        <button class="tool" id="tool-support" title="Підтримати проєкт">
+        <button class="tool" id="tool-support" data-i18n-title="tool.support">
           <svg viewBox="0 0 24 24">
             <path d="M12 20s-8-5.5-8-11a4.2 4.2 0 0 1 8-1.8A4.2 4.2 0 0 1 20 9c0 5.5-8 11-8 11z" />
           </svg>
         </button>
-        <button class="tool" id="tool-appearance" title="Оформлення">
+        <button class="tool" id="tool-appearance" data-i18n-title="tool.appearance">
           <svg viewBox="0 0 24 24">
             <path d="M4 7V5h10v2M9 5v14M7 19h4M14 13h6M17 10v9" />
           </svg>
@@ -548,28 +563,32 @@
       <div id="middle">
         <div id="backdrop"></div>
         <div id="reader"></div>
-        <button class="page-turn" id="turn-back" title="Назад">
+        <button class="page-turn" id="turn-back" data-i18n-title="tool.back">
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
         </button>
-        <button class="page-turn" id="turn-forward" title="Далі">
+        <button class="page-turn" id="turn-forward" data-i18n-title="tool.forward">
           <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg>
         </button>
 
         <div id="start">
           <h1>Chytach</h1>
-          <p>Читалка електронних книг</p>
-          <button id="open-book" type="button">Відкрити книгу</button>
-          <button id="open-sample" type="button">Показати зразок</button>
+          <p data-i18n="app.tagline"></p>
+          <button id="open-book" type="button" data-i18n="start.open"></button>
+          <button id="open-sample" type="button" data-i18n="start.sample"></button>
+          <div id="languages">
+            <button id="language-uk" type="button" data-i18n="start.languageUk"></button>
+            <button id="language-en" type="button" data-i18n="start.languageEn"></button>
+          </div>
         </div>
         <div id="error"></div>
       </div>
 
       <div id="footer">
-        <button class="tool" id="jump-start" title="На початок книги">
+        <button class="tool" id="jump-start" data-i18n-title="tool.jumpStart">
           <svg viewBox="0 0 24 24"><path d="M17 5l-7 7 7 7M6 5v14" /></svg>
         </button>
         <input id="progress" type="range" min="0" max="1000" value="0" />
-        <button class="tool" id="jump-end" title="У кінець книги">
+        <button class="tool" id="jump-end" data-i18n-title="tool.jumpEnd">
           <svg viewBox="0 0 24 24"><path d="M7 5l7 7-7 7M18 5v14" /></svg>
         </button>
         <span id="position"></span>
@@ -577,124 +596,119 @@
 
       <div class="panel" id="panel-appearance">
         <div class="sheet">
-          <h2>Оформлення</h2>
+          <h2 data-i18n="appearance.title"></h2>
 
           <section>
-            <h3>Зразок</h3>
-            <div id="preview">
-              Аркуш паперу, на якому видно, що саме ви міняєте: колір тла,
-              колір тексту й розмір кегля.
-            </div>
+            <h3 data-i18n="appearance.sample"></h3>
+            <div id="preview" data-i18n="appearance.sampleText"></div>
           </section>
 
           <section>
-            <h3>Готові теми</h3>
+            <h3 data-i18n="appearance.themes"></h3>
             <div id="themes"></div>
           </section>
 
           <section>
-            <h3>Власні кольори</h3>
+            <h3 data-i18n="appearance.ownColors"></h3>
             <div class="row">
-              <span>Тло сторінки</span>
+              <span data-i18n="appearance.paper"></span>
               <input type="color" id="color-paper" />
             </div>
             <div class="row">
-              <span>Колір тексту</span>
+              <span data-i18n="appearance.ink"></span>
               <input type="color" id="color-ink" />
             </div>
           </section>
 
           <section>
-            <h3>Розмір тексту</h3>
+            <h3 data-i18n="appearance.textSize"></h3>
             <div class="row">
-              <span>Кегль</span>
+              <span data-i18n="appearance.fontSize"></span>
               <span class="stepper" id="step-font"></span>
             </div>
           </section>
 
           <section>
-            <h3>Поля сторінки</h3>
+            <h3 data-i18n="appearance.margins"></h3>
             <div class="row">
-              <span>Ліве поле</span>
+              <span data-i18n="appearance.left"></span>
               <span class="stepper" id="step-left"></span>
             </div>
             <div class="row">
-              <span>Праве поле</span>
+              <span data-i18n="appearance.right"></span>
               <span class="stepper" id="step-right"></span>
             </div>
             <div class="row">
-              <span>Проміжок між колонками</span>
+              <span data-i18n="appearance.gap"></span>
               <span class="stepper" id="step-gap"></span>
             </div>
           </section>
 
           <div class="sheet-actions">
-            <button class="danger" id="appearance-reset">
-              Повернути початкові
-            </button>
-            <button class="primary" id="appearance-done">Готово</button>
+            <button class="danger" id="appearance-reset" data-i18n="appearance.reset"></button>
+            <button class="primary" id="appearance-done" data-i18n="common.done"></button>
           </div>
         </div>
       </div>
 
       <div class="panel" id="panel-support">
         <div class="sheet">
-          <h2 id="donate-title">Подобається читати тут?</h2>
+          <h2 id="donate-title" data-i18n="donate.title"></h2>
           <p id="donate-body"></p>
           <p class="note" id="donate-voluntary"></p>
 
           <section>
-            <h3>Банка monobank</h3>
+            <h3 data-i18n="donate.jar"></h3>
             <div id="donate-amounts"></div>
             <input
               id="donate-custom"
               type="number"
               min="1"
-              placeholder="Інша сума, ₴"
+              data-i18n-placeholder="donate.customAmount"
             />
             <button class="wide primary" id="donate-go">
-              Задонатити через monobank
+              <span data-i18n="donate.go"></span>
             </button>
             <p class="note" id="donate-jar-note"></p>
           </section>
 
           <section>
-            <h3>Або переказ на картку</h3>
+            <h3 data-i18n="donate.card"></h3>
             <div class="detail">
               <div>
-                <span class="detail-label">Номер картки</span>
+                <span class="detail-label" data-i18n="donate.cardNumber"></span>
                 <span class="detail-value" id="donate-card"></span>
               </div>
-              <button id="donate-copy">Скопіювати</button>
+              <button id="donate-copy" data-i18n="donate.copy"></button>
             </div>
             <p class="note" id="donate-currency-note"></p>
           </section>
 
           <div class="sheet-actions">
             <span></span>
-            <button id="donate-close">Не зараз</button>
+            <button id="donate-close"></button>
           </div>
         </div>
       </div>
 
       <div class="panel" id="panel-contents">
         <div class="sheet">
-          <h2>Зміст</h2>
+          <h2 data-i18n="contents.title"></h2>
           <div class="list" id="contents-list"></div>
           <div class="sheet-actions">
             <span></span>
-            <button class="primary" id="contents-done">Готово</button>
+            <button class="primary" id="contents-done" data-i18n="common.done"></button>
           </div>
         </div>
       </div>
 
       <div class="panel" id="panel-library">
         <div class="sheet">
-          <h2>Бібліотека</h2>
+          <h2 data-i18n="library.title"></h2>
           <div class="list" id="library-list"></div>
           <div class="sheet-actions">
-            <button id="library-add">Додати книгу</button>
-            <button class="primary" id="library-done">Готово</button>
+            <button id="library-add" data-i18n="library.add"></button>
+            <button class="primary" id="library-done" data-i18n="common.done"></button>
           </div>
         </div>
       </div>

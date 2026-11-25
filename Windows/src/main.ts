@@ -16,6 +16,8 @@ import {
   textInsets,
 } from "./appearance.ts";
 import * as ui from "./ui.ts";
+import { applyLanguage, loadLanguage, setLanguage } from "./strings.ts";
+import { t } from "./strings.ts";
 import { openSupport } from "./donation.ts";
 
 const reader = document.getElementById("reader") as HTMLElement;
@@ -422,12 +424,15 @@ function fail(error: unknown, id?: string): void {
   ui.setChromeVisible(false);
   ui.setStartVisible(true);
   ui.showError(
-    "Не вдалося відкрити книгу\n\n" +
+    t("error.openFailed") + "\n\n" +
       (error instanceof Error ? error.message : String(error)),
   );
 }
 
 // MARK: — Хром
+
+loadLanguage();
+applyLanguage();
 
 ui.setupChrome({
   closeBook,
@@ -536,6 +541,12 @@ window.addEventListener("resize", () => {
 // MARK: — Запуск
 
 document.getElementById("open-book")?.addEventListener("click", () => void openFile());
+document
+  .getElementById("language-uk")
+  ?.addEventListener("click", () => setLanguage("uk"));
+document
+  .getElementById("language-en")
+  ?.addEventListener("click", () => setLanguage("en"));
 document
   .getElementById("open-sample")
   ?.addEventListener("click", () => void openSample().catch(fail));

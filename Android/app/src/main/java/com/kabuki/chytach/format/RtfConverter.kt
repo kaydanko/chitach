@@ -202,8 +202,14 @@ object RtfConverter {
                                 inTitle -> hex.toIntOrNull(16)?.let {
                                     title.append(decodeByte(it, cyrillic))
                                 }
+                                // Екрануємо так само, як звичайні байти:
+                                // кутову дужку в RTF можна записати через
+                                // \'3c, і без цього вона потрапила б у
+                                // розмітку як розмітка.
                                 skipDepth == null -> hex.toIntOrNull(16)?.let {
-                                    text.append(decodeByte(it, cyrillic))
+                                    text.append(
+                                        EpubBuilder.escape(decodeByte(it, cyrillic).toString())
+                                    )
                                 }
                             }
                         }
@@ -246,7 +252,9 @@ object RtfConverter {
                                     // записане зі знаком.
                                     val code = if (number < 0) number + 65536 else number
                                     if (skipDepth == null && code in 1..0x10FFFF) {
-                                        text.appendCodePoint(code)
+                                        text.append(
+                                            EpubBuilder.escape(String(Character.toChars(code)))
+                                        )
                                     }
                                     // Далі йде запасний запис того самого
                                     // символу — його пропускаємо.
