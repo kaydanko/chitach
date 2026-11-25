@@ -25,11 +25,23 @@ struct OpenBook {
 #[derive(Default)]
 struct BookState(Mutex<OpenBook>);
 
+/// Стеля на один файл усередині книги й на книгу загалом.
+///
+/// Розмір кожного файлу заявляє заголовок архіву, тобто той, хто книгу
+/// зібрав. Повірити цьому числу й одразу попросити стільки памʼяті
+/// означає віддати застосунок будь-кому, хто напише в заголовку сто
+/// гігабайтів: вистачить відкрити таку книгу, щоб застосунок зжер усю
+/// памʼять. Тому число з заголовка ні на що не впливає, а читання
+/// обривається на межі.
+const MAX_ENTRY_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
+
 fn unpack(raw: Vec<u8>) -> Result<OpenBook, String> {
     let mut archive =
         zip::ZipArchive::new(Cursor::new(raw.clone())).map_err(|e| e.to_string())?;
 
     let mut entries = HashMap::new();
+    let mut total: u64 = 0;
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(|e| e.to_string())?;
         if file.is_dir() {
@@ -42,8 +54,23 @@ fn unpack(raw: Vec<u8>) -> Result<OpenBook, String> {
         };
         let path = path.to_string_lossy().replace('\\', "/");
 
-        let mut bytes = Vec::with_capacity(file.size() as usize);
-        file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        // `take` замість довіри до заявленого розміру: читаємо щонайбільше
+        // на байт більше за стелю, щоб відрізнити «рівно по межі» від
+        // «більше, ніж можна».
+        let mut bytes = Vec::new();
+        file.take(MAX_ENTRY_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+
+        if bytes.len() as u64 > MAX_ENTRY_BYTES {
+            return Err(format!("файл {path} у книзі завеликий"));
+        }
+
+        total += bytes.len() as u64;
+        if total > MAX_TOTAL_BYTES {
+            return Err("книга завелика".to_string());
+        }
+
         entries.insert(path, bytes);
     }
 
@@ -60,6 +87,15 @@ fn unpack(raw: Vec<u8>) -> Result<OpenBook, String> {
 /// людина: з рідного діалогу, з аргументів запуску або з власної памʼяті
 /// застосунку.
 fn load_book(path: &str, state: &BookState) -> Result<(), String> {
+    // Сам файл книги теж тримаємо в памʼяті цілком, тож міряємо його до
+    // читання, а не після.
+    let size = std::fs::metadata(path)
+        .map_err(|e| format!("{path}: {e}"))?
+        .len();
+    if size > MAX_TOTAL_BYTES {
+        return Err(format!("{path}: файл завеликий"));
+    }
+
     let raw = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
     let book = unpack(raw)?;
     log::info!(
@@ -349,6 +385,36 @@ mod tests {
         assert_eq!(percent_decode("EPUB/text/%D1%80%D0%BE%D0%B7%D0%B4%D1%96%D0%BB.xhtml"),
                    "EPUB/text/розділ.xhtml");
         assert_eq!(percent_decode("EPUB/a%20b.css"), "EPUB/a b.css");
+    }
+
+    #[test]
+    fn завеликий_запис_відкидається() {
+        // Архів, у якому один файл більший за стелю, не має розпакуватися
+        // й не має зʼїсти памʼять по дорозі.
+        use std::io::Write;
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
+            writer
+                .start_file(
+                    "велике.bin",
+                    zip::write::SimpleFileOptions::default()
+                        .compression_method(zip::CompressionMethod::Deflated),
+                )
+                .unwrap();
+            // Нулі стискаються майже в ніщо: у цьому й суть такої книги.
+            let chunk = vec![0u8; 1024 * 1024];
+            for _ in 0..((MAX_ENTRY_BYTES / chunk.len() as u64) + 2) {
+                writer.write_all(&chunk).unwrap();
+            }
+            writer.finish().unwrap();
+        }
+
+        let error = match unpack(buffer) {
+            Err(error) => error,
+            Ok(_) => panic!("завеликий запис мав бути відкинутий"),
+        };
+        assert!(error.contains("завеликий"), "несподівана помилка: {error}");
     }
 
     #[test]
