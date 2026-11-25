@@ -25,8 +25,8 @@ android {
         targetSdk = (property("android.targetSdk") as String).toInt()
 
         // Версія йде окремо від iOS-версії: нумерація спільна, збірки — ні.
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
     }
 
