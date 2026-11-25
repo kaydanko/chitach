@@ -107,6 +107,139 @@ fn load_book(path: &str, state: &BookState) -> Result<(), String> {
     Ok(())
 }
 
+/// Запис про книгу в бібліотеці.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Default)]
+struct BookRecord {
+    path: String,
+    title: String,
+    #[serde(default)]
+    author: String,
+    #[serde(default)]
+    progress: f64,
+    /// Коли востаннє відкривали, у секундах епохи: недавно читане вгорі.
+    #[serde(default)]
+    opened_at: u64,
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+fn library_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    let dir = app.path().app_data_dir().ok()?;
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir.join("library.json"))
+}
+
+fn read_library(app: &tauri::AppHandle) -> Vec<BookRecord> {
+    let Some(file) = library_path(app) else {
+        return Vec::new();
+    };
+    let Ok(text) = std::fs::read_to_string(file) else {
+        return Vec::new();
+    };
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+fn write_library(app: &tauri::AppHandle, books: &[BookRecord]) {
+    if let Some(file) = library_path(app) {
+        if let Ok(text) = serde_json::to_string_pretty(books) {
+            let _ = std::fs::write(file, text);
+        }
+    }
+}
+
+/// Додає книгу до бібліотеки або піднімає наявну вгору.
+fn note_opened(app: &tauri::AppHandle, path: &str) {
+    let mut books = read_library(app);
+    match books.iter_mut().find(|b| b.path == path) {
+        Some(book) => book.opened_at = now(),
+        None => books.push(BookRecord {
+            path: path.to_string(),
+            // Назва поки невідома: її дасть вебвʼю, коли розбере книгу.
+            title: std::path::Path::new(path)
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.to_string()),
+            opened_at: now(),
+            ..Default::default()
+        }),
+    }
+    write_library(app, &books);
+}
+
+/// Перелік книг, недавно читані вгорі.
+#[tauri::command]
+fn list_books(app: tauri::AppHandle) -> Vec<BookRecord> {
+    let mut books = read_library(&app);
+    books.sort_by(|a, b| b.opened_at.cmp(&a.opened_at));
+    books
+}
+
+/// Відкриває книгу з бібліотеки за її місцем у переліку.
+///
+/// Саме за номером, а не за шляхом: шлях до файлу не має приходити з
+/// вебвʼю — причина та сама, що й у `load_book`.
+#[tauri::command]
+fn open_library_book(
+    index: usize,
+    app: tauri::AppHandle,
+    state: State<'_, BookState>,
+) -> Result<Option<String>, String> {
+    let mut books = read_library(&app);
+    books.sort_by(|a, b| b.opened_at.cmp(&a.opened_at));
+
+    let Some(book) = books.get(index) else {
+        return Ok(None);
+    };
+    let path = book.path.clone();
+
+    if load_book(&path, &state).is_err() {
+        // Книга зникла з диска — прибираємо її з переліку, щоб не дражнила.
+        let mut all = read_library(&app);
+        all.retain(|b| b.path != path);
+        write_library(&app, &all);
+        return Ok(None);
+    }
+
+    remember(&app, &path);
+    note_opened(&app, &path);
+    Ok(Some(path))
+}
+
+/// Доповнює запис про відкриту книгу тим, що вичитав із неї вебвʼю.
+///
+/// Назва, автор і поступ — не шляхи, тож брати їх звідти безпечно: вони
+/// лягають у запис книги, яку Rust уже відкрив сам.
+#[tauri::command]
+fn record_metadata(
+    title: String,
+    author: String,
+    progress: f64,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let Some(file) = memory_path(&app) else {
+        return Ok(());
+    };
+    let Ok(current) = std::fs::read_to_string(file) else {
+        return Ok(());
+    };
+
+    let mut books = read_library(&app);
+    if let Some(book) = books.iter_mut().find(|b| b.path == current) {
+        if !title.is_empty() {
+            book.title = title;
+        }
+        book.author = author;
+        book.progress = progress.clamp(0.0, 1.0);
+        write_library(&app, &books);
+    }
+    Ok(())
+}
+
 /// Шлях до файлу, у якому памʼятаємо останню книгу.
 fn memory_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     let dir = app.path().app_data_dir().ok()?;
@@ -146,6 +279,7 @@ fn pick_book(app: tauri::AppHandle, state: State<'_, BookState>) -> Result<Optio
 
     load_book(&path, &state)?;
     remember(&app, &path);
+    note_opened(&app, &path);
     Ok(Some(path))
 }
 
@@ -161,6 +295,7 @@ fn open_startup_book(
     };
     load_book(&path, &state)?;
     remember(&app, &path);
+    note_opened(&app, &path);
     Ok(Some(path))
 }
 
@@ -336,6 +471,28 @@ pub fn run() {
     }));
 
     builder
+        .on_window_event(|window, event| {
+            // Книгу, перетягнуту у вікно, відкриває Rust і лише сповіщає
+            // вебвʼю: шлях до файлу через нього не ходить — причина та
+            // сама, що й у `load_book`.
+            let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event
+            else {
+                return;
+            };
+            let Some(path) = paths.iter().find(|p| p.is_file()) else {
+                return;
+            };
+            let path = path.to_string_lossy().into_owned();
+
+            let app = window.app_handle();
+            let state = app.state::<BookState>();
+            if load_book(&path, &state).is_ok() {
+                remember(app, &path);
+                note_opened(app, &path);
+                use tauri::Emitter;
+                let _ = app.emit("book-opened", path);
+            }
+        })
         .plugin(tauri_plugin_log::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(BookState::default())
@@ -343,7 +500,15 @@ pub fn run() {
             let state = context.app_handle().state::<BookState>();
             serve(&state, request)
         })
-        .invoke_handler(tauri::generate_handler![pick_book, open_sample, open_startup_book, open_last_book])
+        .invoke_handler(tauri::generate_handler![
+            pick_book,
+            open_sample,
+            open_startup_book,
+            open_last_book,
+            list_books,
+            open_library_book,
+            record_metadata
+        ])
         .run(tauri::generate_context!())
         .expect("не вдалося запустити застосунок");
 }

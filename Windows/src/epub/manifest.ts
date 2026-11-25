@@ -56,6 +56,13 @@ function textOf(parent: Element | Document, ns: string, name: string): string | 
   return value ? value : undefined;
 }
 
+/** Усі значення тегу, а не лише перше: авторів у книзі буває кілька. */
+function allTextOf(parent: Element, ns: string, name: string): string[] {
+  return Array.from(parent.getElementsByTagNameNS(ns, name))
+    .map((node) => node.textContent?.trim() ?? "")
+    .filter((value) => value.length > 0);
+}
+
 function tocFromNavDocument(entries: ZipEntries, navPath: string): TocEntry[] {
   const doc = parseXML(entryAsText(entries, navPath), "application/xhtml+xml");
 
@@ -134,7 +141,7 @@ export function buildManifest(entries: ZipEntries, baseURL: string): EpubManifes
 
   const metadataNode = opf.getElementsByTagNameNS(OPF_NS, "metadata")[0];
   const title = metadataNode ? textOf(metadataNode, DC_NS, "title") : undefined;
-  const author = metadataNode ? textOf(metadataNode, DC_NS, "creator") : undefined;
+  const authors = metadataNode ? allTextOf(metadataNode, DC_NS, "creator") : [];
   const language = metadataNode ? textOf(metadataNode, DC_NS, "language") : undefined;
   const identifier = metadataNode ? textOf(metadataNode, DC_NS, "identifier") : undefined;
 
@@ -192,7 +199,7 @@ export function buildManifest(entries: ZipEntries, baseURL: string): EpubManifes
     "@type": "http://schema.org/Book",
     title: title ?? "Без назви",
   };
-  if (author) metadata.author = author;
+  if (authors.length > 0) metadata.author = authors;
   if (language) metadata.language = language;
   if (identifier) metadata.identifier = identifier;
 

@@ -8,21 +8,42 @@ import { ZipFetcher } from "./epub/ZipFetcher.ts";
 import { forgetBook, saveLocator, savedLocator } from "./library.ts";
 import {
   appearance,
+  clampFontSize,
+  loadAppearance,
   pageCSS,
+  saveAppearance,
   shouldUseTwoColumns,
   textInsets,
 } from "./appearance.ts";
+import * as ui from "./ui.ts";
 
 const reader = document.getElementById("reader") as HTMLElement;
-const startPanel = document.getElementById("start") as HTMLElement;
-const errorBox = document.getElementById("error") as HTMLElement;
 
 /** Чи працюємо всередині оболонки Tauri, чи просто у браузері. */
 const inTauri = "__TAURI_INTERNALS__" in window;
 
+/**
+ * Умовний ключ вкладеного зразка.
+ *
+ * Справжній шлях до нього залежить від того, куди встановлено застосунок,
+ * а памʼять про місце читання має пережити оновлення.
+ */
+const SAMPLE = "__sample__";
+
+/** Відкрита книга з усім, що потрібно, щоб перемалювати її без читання з диска. */
+interface OpenBook {
+  path: string;
+  publication: Publication;
+  baseURL: string;
+  positions: Locator[];
+}
+
+let book: OpenBook | null = null;
 let navigator_: EpubNavigator | null = null;
 let twoColumns = false;
 let grainDataURI: string | undefined;
+
+// MARK: — Зерно
 
 /**
  * Зерно як data-URI, а не як посилання на файл.
@@ -32,18 +53,19 @@ let grainDataURI: string | undefined;
  * залежала б від того, звідки запущено застосунок, — у збірці Tauri це вже
  * інша схема. Data-URI не залежить ні від чого.
  */
-async function loadGrain(): Promise<string | undefined> {
+async function loadGrain(): Promise<void> {
+  if (grainDataURI !== undefined) return;
   try {
     const response = await fetch("./grain.png");
     const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
+    grainDataURI = await new Promise<string>((resolve, reject) => {
       const file = new FileReader();
       file.onload = () => resolve(file.result as string);
       file.onerror = () => reject(file.error);
       file.readAsDataURL(blob);
     });
   } catch {
-    return undefined;
+    grainDataURI = undefined;
   }
 }
 
@@ -64,48 +86,14 @@ function cspSource(url: string): string {
   return parsed.origin !== "null" ? parsed.origin : parsed.protocol;
 }
 
-/** Звуження області читання під бічні поля — див. `textInsets`. */
-function layoutReader(): void {
-  const view = textInsets(twoColumns).view;
-  reader.style.left = `${view.left}px`;
-  reader.style.right = `${view.right}px`;
-}
-
-function stylesheet(): Blob {
-  return new Blob([pageCSS(twoColumns, grainDataURI)], { type: "text/css" });
-}
-
-function showStart(): void {
-  startPanel.style.display = "flex";
-}
-
-function hideStart(): void {
-  startPanel.style.display = "none";
-}
-
-function hideError(): void {
-  errorBox.style.display = "none";
-}
-
-/**
- * Книга, яку не вдалося відкрити, більше не вважається останньою: інакше
- * застосунок відкривався б тією самою помилкою щоразу.
- */
-function showError(error: unknown, path?: string): void {
-  if (path) forgetBook(path);
-  showStart();
-  errorBox.style.display = "grid";
-  errorBox.textContent =
-    "Не вдалося відкрити книгу\n\n" +
-    (error instanceof Error ? error.message : String(error));
-}
+// MARK: — Джерело книги
 
 /**
  * Байти книги та адреса, від якої розв'язуються посилання всередині
  * розділів.
  *
  * У збірці архів тримає Rust і віддає його схемою `epub`; у розробці те
- * саме робить middleware Vite. Для решти коду різниці немає.
+ * саме робить middleware Vite.
  */
 async function bookBytes(): Promise<{ bytes: Uint8Array; baseURL: string }> {
   if (inTauri) {
@@ -123,22 +111,11 @@ async function bookBytes(): Promise<{ bytes: Uint8Array; baseURL: string }> {
   };
 }
 
-/**
- * Умовний ключ вкладеного зразка.
- *
- * Справжній шлях до нього залежить від того, куди встановлено застосунок,
- * а памʼять про місце читання має пережити оновлення.
- */
-const SAMPLE = "__sample__";
+// MARK: — Відкриття
 
-/** Відкриває зразок, вкладений у збірку. */
-async function openSample(): Promise<void> {
-  if (inTauri) await invoke("open_sample");
-  await render(SAMPLE);
-}
-
+/** Розбирає книгу, яку Rust уже тримає розпакованою, і малює її. */
 async function render(path: string): Promise<void> {
-  hideError();
+  ui.hideError();
 
   const { bytes, baseURL } = await bookBytes();
   const entries = readZip(bytes);
@@ -170,19 +147,41 @@ async function render(path: string): Promise<void> {
     )
     .filter((locator): locator is Locator => locator !== undefined);
 
-  twoColumns = shouldUseTwoColumns(window.innerWidth);
+  book = { path, publication, baseURL, positions };
+
+  await loadGrain();
+  await mount(savedLocator(path) ?? positions[0]);
+
+  ui.setStartVisible(false);
+  ui.setChromeVisible(true);
+  reportMetadata();
+}
+
+/** Створює навігатор на поточному оформленні й веде його на `at`. */
+async function mount(at: Locator | undefined): Promise<void> {
+  if (!book) return;
+
+  twoColumns = shouldUseTwoColumns(reader.clientWidth || window.innerWidth);
   layoutReader();
-  grainDataURI = await loadGrain();
 
   await navigator_?.destroy();
+  navigator_ = null;
   reader.replaceChildren();
+
+  const stylesheet = new Blob([pageCSS(twoColumns, grainDataURI)], {
+    type: "text/css",
+  });
 
   navigator_ = new EpubNavigator(
     reader,
-    publication,
+    book.publication,
     {
       frameLoaded: () => {},
-      positionChanged: (locator) => saveLocator(path, locator),
+      positionChanged: (locator) => {
+        if (!book) return;
+        saveLocator(book.path, locator);
+        updateProgress(locator);
+      },
       viewportChanged: () => {},
       timelineItemChanged: () => {},
       tap: () => false,
@@ -197,43 +196,130 @@ async function render(path: string): Promise<void> {
       contextMenu: () => {},
       peripheral: () => {},
     },
-    positions,
-    savedLocator(path) ?? positions[0],
+    book.positions,
+    at ?? book.positions[0],
     {
-      preferences: {
-        columnCount: twoColumns ? 2 : 1,
-        fontSize: appearance.fontSize,
-        hyphens: true,
-        // Справжні поля задає стиль нижче; це запасне значення на випадок,
-        // якщо він колись не доїде.
-        pageGutter: appearance.defaultSideMargin,
-        paragraphIndent: 1.0,
-        scroll: false,
-        textAlign: TextAlignment.justify,
-        textColor: appearance.inkColor,
-        // Знімаємо стелю довжини рядка, інакше колонки не заповнюють ширину.
-        maximalLineLength: appearance.maximumLineLength,
-      },
+      preferences: preferences(),
       defaults: {},
       injectables: {
         // Стиль іде в кінець `head` кожного розділу — так само, як user
         // script на iOS і вставка через JS на Android.
-        rules: [{ resources: [/.*/], append: [
-          { as: "link", rel: "stylesheet", blob: stylesheet() },
-        ] }],
+        rules: [
+          {
+            resources: [/.*/],
+            append: [{ as: "link", rel: "stylesheet", blob: stylesheet }],
+          },
+        ],
         // Кадр отримує сувору CSP, у якій дозволені лише перелічені
         // походження. Без адреси книги не завантажились би ні її стилі,
         // ні картинки: вони приходять з іншого походження, ніж сторінка.
-        allowedDomains: [cspSource(location.href), cspSource(baseURL)],
+        allowedDomains: [cspSource(location.href), cspSource(book.baseURL)],
       },
     },
   );
 
   await navigator_.load();
-  hideStart();
 }
 
-// MARK: — Гортання
+function preferences() {
+  return {
+    columnCount: twoColumns ? 2 : 1,
+    fontSize: appearance.fontSize,
+    hyphens: true,
+    // Справжні поля задає стиль; це запасне значення на випадок, якщо він
+    // колись не доїде.
+    pageGutter: appearance.defaultSideMargin,
+    paragraphIndent: 1.0,
+    scroll: false,
+    textAlign: TextAlignment.justify,
+    textColor: appearance.inkColor,
+    // Знімаємо стелю довжини рядка, інакше колонки не заповнюють ширину.
+    maximalLineLength: appearance.maximumLineLength,
+  };
+}
+
+/**
+ * Звуження області читання під бічні поля.
+ *
+ * Усередині документа проміжок між колонками дорівнює сумі бічних полів —
+ * властивість сітки колонок, яку не обійти. Тому проміжок лишається
+ * документу, а бічні поля доміряються звуженням самої області читання: з
+ * краю лишається смуга, де видно папір із зерном.
+ */
+function layoutReader(): void {
+  const view = textInsets(twoColumns).view;
+  reader.style.left = `${view.left}px`;
+  reader.style.right = `${view.right}px`;
+}
+
+// MARK: — Поступ і зміст
+
+/**
+ * Поступ по книзі з точністю до сторінки, а не до розділу.
+ *
+ * `totalProgression` рахується з переліку позицій, а той у нас грубий —
+ * по позиції на розділ. У книзі з трьох файлів повзунок мав би три
+ * положення, а кінець книги показував би 67%. Тому рахуємо самі: номер
+ * розділу плюс те, скільки пройдено всередині нього.
+ */
+function fractionOf(locator: Locator): number {
+  if (!book) return 0;
+  const items = book.publication.readingOrder.items;
+  if (items.length === 0) return 0;
+
+  const resource = locator.href.split("#")[0];
+  const index = items.findIndex((item) => item.href.split("#")[0] === resource);
+  if (index < 0) return 0;
+
+  const inside = locator.locations.progression ?? 0;
+  return Math.min(1, (index + inside) / items.length);
+}
+
+function updateProgress(locator: Locator): void {
+  const fraction = fractionOf(locator);
+  ui.setProgress(fraction, `${Math.round(fraction * 100)}%`);
+}
+
+function contentsEntries(): ui.ContentsEntry[] {
+  const entries: ui.ContentsEntry[] = [];
+  const walk = (links: readonly unknown[], depth: number): void => {
+    for (const raw of links) {
+      const link = raw as {
+        href: string;
+        title?: string;
+        children?: { items?: readonly unknown[] };
+      };
+      entries.push({ href: link.href, title: link.title ?? "", depth });
+      const children = link.children?.items;
+      if (children && children.length > 0) walk(children, depth + 1);
+    }
+  };
+  walk(book?.publication.toc?.items ?? [], 0);
+  return entries;
+}
+
+function reportMetadata(): void {
+  if (!inTauri || !book) return;
+  const metadata = book.publication.metadata;
+  const locator = navigator_?.currentLocator;
+
+  // Назва й імена авторів у тулкіті — локалізовані рядки, а не рядки:
+  // `String()` з них робить «[object Object]».
+  const authors = metadata.authors?.items ?? [];
+
+  invoke("record_metadata", {
+    title: metadata.title?.getTranslation() ?? "",
+    author: authors
+      .map((person) => person.name?.getTranslation() ?? "")
+      .filter((name) => name.length > 0)
+      .join(", "),
+    progress: locator ? fractionOf(locator) : 0,
+  }).catch(() => {
+    // Запис у бібліотеку не вартий того, щоб через нього падала книга.
+  });
+}
+
+// MARK: — Дії
 
 function turn(forward: boolean): void {
   if (!navigator_) return;
@@ -241,40 +327,209 @@ function turn(forward: boolean): void {
   else navigator_.goBackward(true, () => {});
 }
 
+function goTo(locator: Locator | undefined): void {
+  if (!navigator_ || !locator) return;
+  navigator_.go(locator, true, () => {});
+}
+
+function goToFraction(fraction: number): void {
+  if (!book) return;
+  const items = book.publication.readingOrder.items;
+  if (items.length === 0) return;
+
+  const exact = Math.min(0.9999, Math.max(0, fraction)) * items.length;
+  const index = Math.floor(exact);
+  const inside = exact - index;
+
+  goTo(
+    Locator.deserialize({
+      href: items[index].href,
+      type: items[index].type,
+      locations: { progression: inside },
+    }),
+  );
+}
+
+function closeBook(): void {
+  book = null;
+  navigator_?.destroy();
+  navigator_ = null;
+  reader.replaceChildren();
+  ui.setChromeVisible(false);
+  ui.setStartVisible(true);
+}
+
+async function openFile(): Promise<void> {
+  if (!inTauri) return;
+  try {
+    const path = await invoke<string | null>("pick_book");
+    if (path !== null) await render(path);
+  } catch (error) {
+    fail(error);
+  }
+}
+
+async function openSample(): Promise<void> {
+  if (inTauri) await invoke("open_sample");
+  await render(SAMPLE);
+}
+
+async function openLibrary(): Promise<void> {
+  if (!inTauri) {
+    ui.fillLibrary([], undefined, () => {});
+    ui.showPanel("library");
+    return;
+  }
+
+  const books = await invoke<
+    Array<{ path: string; title: string; author: string; progress: number }>
+  >("list_books");
+
+  ui.fillLibrary(
+    books.map((b) => ({
+      path: b.path,
+      title: b.title,
+      author: b.author || undefined,
+      progress: b.progress,
+    })),
+    book?.path,
+    (path) => {
+      const index = books.findIndex((b) => b.path === path);
+      if (index < 0) return;
+      ui.hidePanels();
+      invoke<string | null>("open_library_book", { index })
+        .then((opened) => (opened === null ? undefined : render(opened)))
+        .catch(fail);
+    },
+  );
+  ui.showPanel("library");
+}
+
+/**
+ * Книга, яку не вдалося відкрити, більше не вважається останньою: інакше
+ * застосунок відкривався б тією самою помилкою щоразу.
+ */
+function fail(error: unknown, path?: string): void {
+  if (path) forgetBook(path);
+  ui.setChromeVisible(false);
+  ui.setStartVisible(true);
+  ui.showError(
+    "Не вдалося відкрити книгу\n\n" +
+      (error instanceof Error ? error.message : String(error)),
+  );
+}
+
+// MARK: — Хром
+
+ui.setupChrome({
+  closeBook,
+  openLibrary: () => void openLibrary().catch(fail),
+  openFile: () => void openFile(),
+  openContents: () => {
+    ui.fillContents(contentsEntries(), navigator_?.currentLocator.href, (href) => {
+      ui.hidePanels();
+      // Якір Readium чекає не в адресі, а окремо: у локаторі з самим
+      // `href` із решіткою перехід мовчки лишається на початку розділу.
+      const [resource, fragment] = href.split("#");
+      goTo(
+        Locator.deserialize({
+          href: resource,
+          type: "application/xhtml+xml",
+          locations: {
+            progression: 0,
+            fragments: fragment ? [fragment] : [],
+          },
+        }),
+      );
+    });
+    ui.showPanel("contents");
+  },
+  turn,
+  goToStart: () => goToFraction(0),
+  goToEnd: () => goToFraction(1),
+  goToFraction,
+  appearanceChanged: (fast) => {
+    layoutReader();
+    if (fast) {
+      navigator_?.submitPreferences(preferences() as never).catch(() => {});
+      return;
+    }
+    // Колір, зерно й поля живуть у вставленому стилі, а він потрапляє в
+    // кадр під час створення. Тому перемальовуємо навігатор на місці, де
+    // людина стоїть.
+    const at = navigator_?.currentLocator;
+    void mount(at).catch(fail);
+  },
+});
+
+// MARK: — Клавіші
+
 window.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+  const command = event.metaKey || event.ctrlKey;
+
+  if (event.key === "Escape") {
+    ui.hidePanels();
+    return;
+  }
+  if (ui.panelOpen()) return;
+
+  if (command && (event.key === "=" || event.key === "+")) {
+    event.preventDefault();
+    appearance.fontSize = clampFontSize(appearance.fontSize + appearance.fontSizeStep);
+    saveAppearance();
+    navigator_?.submitPreferences(preferences() as never).catch(() => {});
+  } else if (command && event.key === "-") {
+    event.preventDefault();
+    appearance.fontSize = clampFontSize(appearance.fontSize - appearance.fontSizeStep);
+    saveAppearance();
+    navigator_?.submitPreferences(preferences() as never).catch(() => {});
+  } else if (command && event.key === "ArrowUp") {
+    event.preventDefault();
+    goToFraction(0);
+  } else if (command && event.key === "ArrowDown") {
+    event.preventDefault();
+    goToFraction(1);
+  } else if (command && event.key.toLowerCase() === "o") {
+    event.preventDefault();
+    void openFile();
+  } else if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
     turn(true);
   } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
     turn(false);
   }
 });
 
-reader.addEventListener("click", (event) => {
-  turn(event.clientX > window.innerWidth / 2);
+/** Кегль коліщатком із затиснутим Ctrl або Cmd — як на macOS. */
+window.addEventListener(
+  "wheel",
+  (event) => {
+    if (!(event.metaKey || event.ctrlKey) || !navigator_) return;
+    event.preventDefault();
+    const step = event.deltaY < 0 ? appearance.fontSizeStep : -appearance.fontSizeStep;
+    appearance.fontSize = clampFontSize(appearance.fontSize + step);
+    saveAppearance();
+    navigator_?.submitPreferences(preferences() as never).catch(() => {});
+  },
+  { passive: false },
+);
+
+/** Поворот чи зміна розміру вікна може змінити кількість колонок. */
+window.addEventListener("resize", () => {
+  if (!book) return;
+  const wide = shouldUseTwoColumns(reader.clientWidth || window.innerWidth);
+  if (wide === twoColumns) {
+    layoutReader();
+    return;
+  }
+  void mount(navigator_?.currentLocator).catch(fail);
 });
 
 // MARK: — Запуск
 
-/**
- * Вибір книги веде Rust, а не вебвʼю.
- *
- * Діалог міг би жити й тут, але тоді шлях до файлу повертався б у вебвʼю
- * й ішов назад командою — а вебвʼю показує чужий вміст: розділи книги
- * малюються в iframe зі скриптами й спільним походженням. Команда, що
- * приймає довільний шлях, дала б книзі прочитати будь-який файл.
- */
-document.getElementById("open-book")?.addEventListener("click", async () => {
-  try {
-    const path = await invoke<string | null>("pick_book");
-    if (path !== null) await render(path);
-  } catch (error) {
-    showError(error);
-  }
-});
-
-document.getElementById("open-sample")?.addEventListener("click", () => {
-  openSample().catch(showError);
-});
+document.getElementById("open-book")?.addEventListener("click", () => void openFile());
+document
+  .getElementById("open-sample")
+  ?.addEventListener("click", () => void openSample().catch(fail));
 
 /**
  * Книга, відкрита з Провідника, поки застосунок уже працює.
@@ -285,11 +540,14 @@ document.getElementById("open-sample")?.addEventListener("click", () => {
  */
 if (inTauri) {
   listen<string>("book-opened", (event) => {
-    render(event.payload).catch((error) => showError(error, event.payload));
+    render(event.payload).catch((error) => fail(error, event.payload));
   });
 }
 
 async function start(): Promise<void> {
+  loadAppearance();
+  ui.applyChromeColors();
+
   if (!inTauri) {
     await render(SAMPLE);
     return;
@@ -297,19 +555,15 @@ async function start(): Promise<void> {
 
   // Подвійне клацання на книзі в Провіднику передає шлях аргументом;
   // інакше повертаємося до тієї, на якій зупинилися.
-  try {
-    const path =
-      (await invoke<string | null>("open_startup_book")) ??
-      (await invoke<string | null>("open_last_book"));
+  const path =
+    (await invoke<string | null>("open_startup_book")) ??
+    (await invoke<string | null>("open_last_book"));
 
-    if (path === null) {
-      showStart();
-      return;
-    }
-    await render(path);
-  } catch (error) {
-    showError(error);
+  if (path === null) {
+    ui.setStartVisible(true);
+    return;
   }
+  await render(path);
 }
 
-start().catch(showError);
+start().catch((error) => fail(error));

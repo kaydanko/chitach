@@ -8,6 +8,21 @@
 export const DEFAULT_PAPER = "#CDC28B";
 export const DEFAULT_INK = "#38331C";
 
+/** Готові теми. Значення ті самі, що в Swift-версії. */
+export const THEMES: ReadonlyArray<{
+  id: string;
+  name: string;
+  paper: string;
+  ink: string;
+}> = [
+  { id: "sand", name: "Пісочна", paper: "#CDC28B", ink: "#38331C" },
+  { id: "cream", name: "Кремова", paper: "#EEE6D3", ink: "#2B2419" },
+  { id: "sepia", name: "Сепія", paper: "#E4D5B7", ink: "#4A3826" },
+  { id: "grey", name: "Сіра", paper: "#C9C9C4", ink: "#242424" },
+  { id: "night", name: "Нічна", paper: "#2A2A28", ink: "#C4BFAE" },
+  { id: "black", name: "Чорна", paper: "#000000", ink: "#9A9A92" },
+];
+
 export const appearance = {
   paperColor: DEFAULT_PAPER,
   inkColor: DEFAULT_INK,
@@ -140,4 +155,67 @@ body {
 :root[style] body {${margins}
 }
 `;
+}
+
+// MARK: — Збереження
+
+const STORED = "chytach.appearance";
+
+type Stored = Pick<
+  typeof appearance,
+  "paperColor" | "inkColor" | "fontSize" | "leftMargin" | "rightMargin" | "spreadGap"
+>;
+
+/**
+ * Оформлення переживає перезапуск.
+ *
+ * Зберігаємо лише те, що міняє людина: решта значень — константи, і
+ * тягнути їх крізь сховище означало б зберегти колись підібране число
+ * назавжди, навіть коли воно в коді зміниться.
+ */
+export function loadAppearance(): void {
+  try {
+    const raw = window.localStorage.getItem(STORED);
+    if (!raw) return;
+    const stored = JSON.parse(raw) as Partial<Stored>;
+    if (typeof stored.paperColor === "string") appearance.paperColor = stored.paperColor;
+    if (typeof stored.inkColor === "string") appearance.inkColor = stored.inkColor;
+    if (typeof stored.fontSize === "number") appearance.fontSize = stored.fontSize;
+    if (typeof stored.leftMargin === "number") appearance.leftMargin = stored.leftMargin;
+    if (typeof stored.rightMargin === "number") appearance.rightMargin = stored.rightMargin;
+    if (typeof stored.spreadGap === "number") appearance.spreadGap = stored.spreadGap;
+  } catch {
+    // Зіпсоване сховище не причина не відкрити книгу.
+  }
+}
+
+export function saveAppearance(): void {
+  try {
+    const stored: Stored = {
+      paperColor: appearance.paperColor,
+      inkColor: appearance.inkColor,
+      fontSize: appearance.fontSize,
+      leftMargin: appearance.leftMargin,
+      rightMargin: appearance.rightMargin,
+      spreadGap: appearance.spreadGap,
+    };
+    window.localStorage.setItem(STORED, JSON.stringify(stored));
+  } catch {
+    // Те саме.
+  }
+}
+
+export function resetAppearance(): void {
+  appearance.paperColor = DEFAULT_PAPER;
+  appearance.inkColor = DEFAULT_INK;
+  appearance.fontSize = appearance.minimumFontSize;
+  appearance.leftMargin = appearance.defaultSideMargin;
+  appearance.rightMargin = appearance.defaultSideMargin;
+  appearance.spreadGap = appearance.defaultSideMargin * 2;
+  saveAppearance();
+}
+
+export function clampFontSize(value: number): number {
+  const stepped = Math.round(value * 10) / 10;
+  return Math.min(Math.max(stepped, appearance.minimumFontSize), appearance.maximumFontSize);
 }
