@@ -13,6 +13,8 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +29,7 @@ import androidx.lifecycle.lifecycleScope
 import com.kabuki.chytach.ChytachApplication
 import com.kabuki.chytach.R
 import com.kabuki.chytach.library.BookLibrary
+import com.kabuki.chytach.library.BookRecord
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -35,6 +38,7 @@ import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.util.DirectionalNavigationAdapter
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.publication.services.positions
 import org.readium.r2.shared.util.toAbsoluteUrl
 
 /**
@@ -54,6 +58,9 @@ class ReaderActivity : AppCompatActivity() {
     private var publication: Publication? = null
     private var currentBook: Uri? = null
     private var twoColumns: Boolean = false
+
+    /** Позиції книги — ними ходить повзунок поступу. */
+    private var positions: List<org.readium.r2.shared.publication.Locator> = emptyList()
 
     /**
      * Вибір книги з файлів.
@@ -78,6 +85,7 @@ class ReaderActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         library = BookLibrary(this)
+        library.loadAppearance()
 
         setContentView(R.layout.activity_reader)
         hideSystemBars()
@@ -91,6 +99,8 @@ class ReaderActivity : AppCompatActivity() {
         findViewById<Button>(R.id.open_sample).setOnClickListener {
             openSample()
         }
+
+        wireChrome()
 
         val book = bookFromIntent(intent) ?: library.lastBook
         if (book != null) openBook(book) else showStartPanel()
@@ -106,6 +116,110 @@ class ReaderActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         publication?.close()
+    }
+
+    // MARK: — Хром
+
+    /**
+     * Шапка, підвал і панелі.
+     *
+     * Порядок кнопок той самий, що у Swift-версії: закрити книгу,
+     * бібліотека, відкрити файл, зміст — ліворуч, оформлення — праворуч.
+     */
+    private fun wireChrome() {
+        findViewById<ImageButton>(R.id.tool_close).setOnClickListener { closeBook() }
+        findViewById<ImageButton>(R.id.tool_open).setOnClickListener {
+            pickBook.launch(arrayOf("*/*"))
+        }
+        findViewById<ImageButton>(R.id.tool_library).setOnClickListener { showLibrary() }
+        findViewById<ImageButton>(R.id.tool_contents).setOnClickListener { showContents() }
+        findViewById<ImageButton>(R.id.tool_appearance).setOnClickListener { showAppearance() }
+
+        findViewById<ImageButton>(R.id.jump_start).setOnClickListener { goToFraction(0.0) }
+        findViewById<ImageButton>(R.id.jump_end).setOnClickListener { goToFraction(1.0) }
+
+        findViewById<SeekBar>(R.id.progress).setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, value: Int, byUser: Boolean) {
+                    if (byUser) goToFraction(value / 1000.0)
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(bar: SeekBar?) = Unit
+            }
+        )
+    }
+
+    private fun setChromeVisible(visible: Boolean) {
+        val state = if (visible) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.toolbar).visibility = state
+        findViewById<View>(R.id.footer).visibility = state
+    }
+
+    private fun showAppearance() {
+        Sheets.appearance(this, library) { fast ->
+            layoutNavigator()
+            if (fast) {
+                navigator?.submitPreferences(BookAppearance.preferences(twoColumns))
+            } else {
+                // Колір, зерно й поля живуть у вставленому стилі, а він
+                // потрапляє в документ під час завантаження. Тому
+                // просимо навігатор застосувати налаштування й одразу
+                // перевставляємо стиль у поточний webview.
+                navigator?.submitPreferences(BookAppearance.preferences(twoColumns))
+                lifecycleScope.launch { applyAppearance() }
+            }
+            installGrainBackdrop()
+        }.show()
+    }
+
+    private fun showContents() {
+        val toc = publication?.tableOfContents ?: emptyList()
+        Sheets.contents(
+            this,
+            Sheets.flattenContents(toc),
+            navigator?.currentLocator?.value?.href?.toString(),
+        ) { link ->
+            navigator?.go(link, true)
+        }.show()
+    }
+
+    private fun showLibrary() {
+        Sheets.library(
+            this,
+            library.books(),
+            currentBook,
+            onPick = { record: BookRecord -> openBook(record.uri) },
+            onAdd = { pickBook.launch(arrayOf("*/*")) },
+        ).show()
+    }
+
+    private fun closeBook() {
+        publication?.close()
+        publication = null
+        navigator = null
+        currentBook = null
+        positions = emptyList()
+
+        supportFragmentManager.findFragmentByTag(NAVIGATOR_TAG)?.let { fragment ->
+            supportFragmentManager.commitNow { remove(fragment) }
+        }
+        setChromeVisible(false)
+        showStartPanel()
+    }
+
+    /** Повзунок ходить позиціями книги — тими самими, що рахує Readium. */
+    private fun goToFraction(fraction: Double) {
+        val all = positions
+        if (all.isEmpty()) return
+        val index = (fraction * (all.size - 1)).toInt().coerceIn(0, all.size - 1)
+        navigator?.go(all[index], true)
+    }
+
+    private fun updateProgress(locator: org.readium.r2.shared.publication.Locator) {
+        val fraction = locator.locations.totalProgression ?: 0.0
+        findViewById<SeekBar>(R.id.progress).progress = (fraction * 1000).toInt()
+        findViewById<TextView>(R.id.position_label).text = "${Math.round(fraction * 100)}%"
     }
 
     // MARK: — Звідки береться книга
@@ -156,6 +270,10 @@ class ReaderActivity : AppCompatActivity() {
                     currentBook = book
                     library.lastBook = book
                     hideStartPanel()
+                    library.noteOpened(book)
+                    positions = runCatching { opened.positions() }
+                        .getOrDefault(emptyList<org.readium.r2.shared.publication.Locator>())
+                    setChromeVisible(true)
                     showNavigator(opened, book)
                 }
                 .onFailure { error ->
@@ -204,6 +322,13 @@ class ReaderActivity : AppCompatActivity() {
             .onEach { locator ->
                 applyAppearance()
                 library.saveLocator(book, locator)
+                updateProgress(locator)
+                library.describe(
+                    book,
+                    publication.metadata.title.orEmpty(),
+                    publication.metadata.authors.joinToString(", ") { it.name },
+                    locator.locations.totalProgression ?: 0.0,
+                )
             }
             .launchIn(lifecycleScope)
     }
@@ -321,9 +446,24 @@ class ReaderActivity : AppCompatActivity() {
             val top = (cutout.top / density).toDouble()
             val bottom = (cutout.bottom / density).toDouble()
 
-            if (top != BookAppearance.safeTopInset || bottom != BookAppearance.safeBottomInset) {
-                BookAppearance.safeTopInset = top
-                BookAppearance.safeBottomInset = bottom
+            // Коли шапка видима, виріз перекриває вона, і відсувати текст
+            // усередині документа вже не треба — інакше відступ подвоївся б.
+            val chromeVisible = findViewById<View>(R.id.toolbar).visibility == View.VISIBLE
+            findViewById<View>(R.id.toolbar).setPadding(
+                0, if (chromeVisible) cutout.top else 0, 0, 0
+            )
+            findViewById<View>(R.id.footer).setPadding(
+                0, 0, 0, if (chromeVisible) cutout.bottom else 0
+            )
+
+            val textTop = if (chromeVisible) 0.0 else top
+            val textBottom = if (chromeVisible) 0.0 else bottom
+
+            if (textTop != BookAppearance.safeTopInset ||
+                textBottom != BookAppearance.safeBottomInset
+            ) {
+                BookAppearance.safeTopInset = textTop
+                BookAppearance.safeBottomInset = textBottom
                 lifecycleScope.launch { applyAppearance() }
             }
             insets

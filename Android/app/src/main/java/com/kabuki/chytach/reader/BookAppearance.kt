@@ -2,6 +2,7 @@ package com.kabuki.chytach.reader
 
 import android.content.Context
 import android.util.Base64
+import com.kabuki.chytach.R
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -30,6 +31,24 @@ object BookAppearance {
 
     const val DEFAULT_PAPER: Int = 0xCDC28B
     const val DEFAULT_INK: Int = 0x38331C
+
+    /**
+     * Готова тема: назва й пара кольорів.
+     *
+     * Названа `ColorTheme`, а не `Theme`: останнє імʼя зайняте типом
+     * Readium, який ми тут таки використовуємо в налаштуваннях.
+     */
+    data class ColorTheme(val id: String, val nameRes: Int, val paper: Int, val ink: Int)
+
+    /** Значення ті самі, що у Swift-версії. */
+    val THEMES: List<ColorTheme> = listOf(
+        ColorTheme("sand", R.string.theme_sand, 0xCDC28B, 0x38331C),
+        ColorTheme("cream", R.string.theme_cream, 0xEEE6D3, 0x2B2419),
+        ColorTheme("sepia", R.string.theme_sepia, 0xE4D5B7, 0x4A3826),
+        ColorTheme("grey", R.string.theme_grey, 0xC9C9C4, 0x242424),
+        ColorTheme("night", R.string.theme_night, 0x2A2A28, 0xC4BFAE),
+        ColorTheme("black", R.string.theme_black, 0x000000, 0x9A9A92),
+    )
 
     var paperColor: Int = DEFAULT_PAPER
     var inkColor: Int = DEFAULT_INK
@@ -99,6 +118,21 @@ object BookAppearance {
 
     /** Поріг переходу на дві колонки, у dp. */
     const val TWO_COLUMN_THRESHOLD: Double = 700.0
+
+    fun clampFontSize(value: Double): Double {
+        val stepped = Math.round(value * 10) / 10.0
+        return min(max(stepped, MINIMUM_FONT_SIZE), MAXIMUM_FONT_SIZE)
+    }
+
+    /** Повертає все, що міняє людина, до початкових значень. */
+    fun reset() {
+        paperColor = DEFAULT_PAPER
+        inkColor = DEFAULT_INK
+        fontSize = MINIMUM_FONT_SIZE
+        leftMargin = DEFAULT_SIDE_MARGIN
+        rightMargin = DEFAULT_SIDE_MARGIN
+        spreadGap = DEFAULT_SPREAD_GAP
+    }
 
     fun clampSideMargin(value: Double): Double =
         min(max(value.roundToInt().toDouble(), MINIMUM_SIDE_MARGIN), MAXIMUM_SIDE_MARGIN)

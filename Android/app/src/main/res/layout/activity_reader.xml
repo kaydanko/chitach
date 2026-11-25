@@ -10,7 +10,8 @@
     <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="14dp"
@@ -21,25 +22,25 @@
         <ImageButton
             android:id="@+id/tool_close"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_media_previous"
+            android:src="@drawable/ic_close"
             android:contentDescription="@string/close_book" />
 
         <ImageButton
             android:id="@+id/tool_library"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:src="@drawable/ic_library"
             android:contentDescription="@string/library" />
 
         <ImageButton
             android:id="@+id/tool_open"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_menu_add"
+            android:src="@drawable/ic_open"
             android:contentDescription="@string/open_book" />
 
         <ImageButton
             android:id="@+id/tool_contents"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_menu_agenda"
+            android:src="@drawable/ic_contents"
             android:contentDescription="@string/contents" />
 
         <Space
@@ -50,7 +51,7 @@
         <ImageButton
             android:id="@+id/tool_appearance"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_menu_manage"
+            android:src="@drawable/ic_appearance"
             android:contentDescription="@string/appearance" />
     </LinearLayout>
 
@@ -135,7 +136,8 @@
     <LinearLayout
         android:id="@+id/footer"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="12dp"
@@ -146,7 +148,7 @@
         <ImageButton
             android:id="@+id/jump_start"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_media_rew"
+            android:src="@drawable/ic_jump_start"
             android:contentDescription="@string/jump_start" />
 
         <SeekBar
@@ -159,7 +161,7 @@
         <ImageButton
             android:id="@+id/jump_end"
             style="@style/ToolButton"
-            android:src="@android:drawable/ic_media_ff"
+            android:src="@drawable/ic_jump_end"
             android:contentDescription="@string/jump_end" />
 
         <TextView
